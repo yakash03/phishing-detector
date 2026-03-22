@@ -10,7 +10,7 @@ const [error,setError]=useState("")
 const analyze=async()=>{
 if(!url.trim())return
 setLoading(true);setError("");setResult(null)
-try{const res=await axios.post("http://localhost:5000/analyze",{url});setResult(res.data)}
+try{const res=await axios.post("https://phishing-predictor.up.railway.app/analyze",{url});setResult(res.data)}
 catch{setError("Failed to analyze. Make sure backend is running.")}
 setLoading(false)}
 const vc=result?.verdict==="Dangerous"?"#A32D2D":result?.verdict==="Suspicious"?"#854F0B":"#27500A"
