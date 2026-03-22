@@ -121,7 +121,9 @@ const ScanResults=({result})=>{
 const verdict=result.score>=70?"dangerous":result.score>=35?"suspicious":"safe"
 const cfg=verdictConfig[verdict]
 const flags=result.flags||[]
+const ai=result.ai_analysis
 return(
+<div style={{display:"flex",flexDirection:"column",gap:16}}>
 <div style={{border:`1px solid ${cfg.color}33`,borderRadius:8,padding:24,background:`${cfg.color}0a`,boxShadow:`0 0 15px ${cfg.glow}`,animation:"slideIn .5s ease"}}>
 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
 <span style={{fontSize:28}}>{cfg.icon}</span>
@@ -151,6 +153,29 @@ VIRUSTOTAL: <span style={{color:"#ff4444"}}>{result.virustotal.malicious_engines
 </ul>
 </div>}
 {flags.length===0&&<p style={{color:"rgba(0,255,159,0.5)",fontFamily:"monospace",fontSize:13}}>✓ No threat flags detected</p>}
+</div>
+
+{ai&&<div style={{border:"1px solid #00ff9f33",borderRadius:8,padding:20,background:"rgba(0,255,159,0.03)",animation:"slideIn .6s ease .2s both"}}>
+<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#00ff9f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+</svg>
+<span style={{fontSize:13,fontWeight:700,color:"#00ff9f",letterSpacing:2}}>GROQ AI ANALYSIS</span>
+<span style={{marginLeft:"auto",fontSize:10,color:"rgba(0,255,159,0.4)",border:"1px solid #00ff9f22",padding:"2px 8px",borderRadius:20}}>{ai.confidence}% CONFIDENCE</span>
+</div>
+<div style={{fontSize:13,color:"rgba(0,255,159,0.8)",lineHeight:1.7,marginBottom:12,padding:"10px 14px",background:"rgba(0,0,0,0.2)",borderRadius:6,borderLeft:"3px solid #00ff9f44"}}>
+{ai.explanation}
+</div>
+{ai.additional_threats&&ai.additional_threats!=="None detected"&&(
+<div style={{fontSize:12,color:"#ffcc00",marginBottom:10,padding:"8px 12px",background:"rgba(255,204,0,0.05)",borderRadius:4,borderLeft:"2px solid #ffcc0044"}}>
+<span style={{fontWeight:700,letterSpacing:1}}>⚠ ADDITIONAL THREATS: </span>{ai.additional_threats}
+</div>
+)}
+<div style={{fontSize:12,color:"rgba(0,255,159,0.6)",padding:"8px 12px",background:"rgba(0,255,159,0.04)",borderRadius:4,borderLeft:"2px solid #00ff9f33"}}>
+<span style={{fontWeight:700,letterSpacing:1}}>✅ RECOMMENDATION: </span>{ai.recommendation}
+</div>
+</div>}
+
 </div>
 )}
 
