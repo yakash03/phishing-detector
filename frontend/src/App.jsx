@@ -34,15 +34,9 @@ return <canvas ref={canvasRef} style={{position:"fixed",inset:0,pointerEvents:"n
 }
 
 const codeSnippets=["GET /api/phish","SSL: INVALID","DNS: SPOOFED","if(url.sus)","alert('pwned')","chmod 777","nmap -sS","SELECT * FROM","DROP TABLE","0xDEADBEEF"]
-
 const FloatingCode=({delay,x,y})=>{
-const[visible,setVisible]=useState(false)
 const[text]=useState(codeSnippets[Math.floor(Math.random()*codeSnippets.length)])
-useEffect(()=>{
-const t=setTimeout(()=>setVisible(true),delay*1000)
-return()=>clearTimeout(t)
-},[delay])
-return visible?<span style={{position:"absolute",left:`${x}%`,top:`${y}%`,fontFamily:"monospace",fontSize:11,color:"rgba(0,255,159,0.2)",whiteSpace:"nowrap",pointerEvents:"none",animation:"floatUp 4s ease-in-out infinite",animationDelay:`${delay}s`}}>{text}</span>:null
+return <span style={{position:"absolute",left:`${x}%`,top:`${y}%`,fontFamily:"monospace",fontSize:11,color:"rgba(0,255,159,0.2)",whiteSpace:"nowrap",pointerEvents:"none",animation:`floatUp 4s ease-in-out infinite`,animationDelay:`${delay}s`}}>{text}</span>
 }
 
 const HackerScene=()=>{
@@ -58,9 +52,7 @@ else{current+=line+"\n";lineIdx++;charIdx=0}
 },80)
 return()=>clearInterval(interval)
 },[])
-
 const floats=Array.from({length:8},(_,i)=>({delay:i*1.2,x:Math.random()*80+10,y:Math.random()*80+10}))
-
 return(
 <div style={{position:"relative",width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",minHeight:400}}>
 {floats.map((p,i)=><FloatingCode key={i} {...p}/>)}
@@ -81,7 +73,7 @@ return(
 <ellipse cx="125" cy="258" rx="10" ry="5" fill="#0d0d0d" style={{animation:"armFloat 0.3s ease-in-out infinite"}}/>
 <ellipse cx="175" cy="258" rx="10" ry="5" fill="#0d0d0d" style={{animation:"armFloat 0.3s ease-in-out infinite .15s"}}/>
 <defs>
-<radialGradient id="screenGlow2" cx="50%" cy="50%" r="60%">
+<radialGradient id="sg2" cx="50%" cy="50%" r="60%">
 <stop offset="0%" stopColor="#00ff9f" stopOpacity="0.15"/>
 <stop offset="100%" stopColor="#00ff9f" stopOpacity="0"/>
 </radialGradient>
@@ -108,7 +100,6 @@ else{setLines(p=>[...p,msg]);setCurrentLine("");setLineIndex(p=>p+1);clearInterv
 },25)
 return()=>clearInterval(interval)
 },[lineIndex,onComplete])
-
 return(
 <div style={{border:"1px solid #1a3a2a",borderRadius:8,padding:16,background:"rgba(18,18,18,0.5)",fontFamily:"monospace",fontSize:12,maxHeight:240,overflowY:"auto"}}>
 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,color:"rgba(0,255,159,0.5)"}}>
@@ -120,25 +111,6 @@ return(
 </div>
 )}
 
-const suspiciousKeywords=["login","verify","account","secure","update","bank","paypal","password"]
-const suspiciousTLDs=[".xyz",".tk",".ml",".ga",".cf",".top",".buzz",".club"]
-
-function analyzeUrl(url){
-let score=0
-const flags=[]
-const lower=url.toLowerCase()
-if(!lower.startsWith("https://")){score+=25;flags.push("No SSL certificate")}
-for(const tld of suspiciousTLDs){if(lower.includes(tld)){score+=20;flags.push("Suspicious TLD");break}}
-for(const kw of suspiciousKeywords){if(lower.includes(kw)){score+=15;flags.push("Phishing keywords");break}}
-if(lower.includes("bit.ly")||lower.includes("tinyurl")||lower.includes("t.co")){score+=15;flags.push("URL shortener detected")}
-if((url.match(/-/g)||[]).length>3){score+=10;flags.push("Homograph attack")}
-if((url.match(/\./g)||[]).length>4){score+=10;flags.push("Redirects detected")}
-if(url.length>75){score+=10;flags.push("Domain age < 30 days")}
-score=Math.min(score,100)
-const verdict=score<=25?"safe":score<=60?"suspicious":"dangerous"
-return{riskScore:score,verdict,flags}
-}
-
 const verdictConfig={
 safe:{label:"SAFE",color:"#00ff9f",glow:"rgba(0,255,159,0.2)",icon:"🛡️"},
 suspicious:{label:"SUSPICIOUS",color:"#ffcc00",glow:"rgba(255,204,0,0.2)",icon:"⚠️"},
@@ -146,32 +118,39 @@ dangerous:{label:"DANGEROUS",color:"#ff4444",glow:"rgba(255,68,68,0.2)",icon:"�
 }
 
 const ScanResults=({result})=>{
-const cfg=verdictConfig[result.verdict]
+const verdict=result.score>=70?"dangerous":result.score>=35?"suspicious":"safe"
+const cfg=verdictConfig[verdict]
+const flags=result.flags||[]
 return(
 <div style={{border:`1px solid ${cfg.color}33`,borderRadius:8,padding:24,background:`${cfg.color}0a`,boxShadow:`0 0 15px ${cfg.glow}`,animation:"slideIn .5s ease"}}>
 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
 <span style={{fontSize:28}}>{cfg.icon}</span>
 <span style={{fontFamily:"monospace",fontSize:24,fontWeight:700,letterSpacing:"0.1em",color:cfg.color,textShadow:`0 0 10px ${cfg.color}`}}>{cfg.label}</span>
+<span style={{marginLeft:"auto",fontSize:28,fontWeight:700,color:cfg.color}}>{result.score}<span style={{fontSize:14,opacity:.5}}>/100</span></span>
 </div>
 <div style={{marginBottom:16}}>
-<div style={{display:"flex",justifyContent:"space-between",marginBottom:8,fontFamily:"monospace",fontSize:14}}>
-<span style={{color:"rgba(0,255,159,0.4)"}}>Risk Score</span>
-<span style={{color:cfg.color}}>{result.riskScore}/100</span>
-</div>
 <div style={{width:"100%",height:12,background:"#1a1a1a",borderRadius:999,overflow:"hidden"}}>
-<div style={{height:"100%",borderRadius:999,background:cfg.color,boxShadow:`0 0 10px ${cfg.glow}`,width:`${result.riskScore}%`,transition:"width 1.5s ease"}}/>
+<div style={{height:"100%",borderRadius:999,background:cfg.color,boxShadow:`0 0 10px ${cfg.glow}`,width:`${result.score}%`,transition:"width 1.5s ease"}}/>
 </div>
 </div>
-{result.flags.length>0&&<div>
+{result.virustotal?.total_engines>0&&(
+<div style={{fontSize:11,color:"rgba(0,255,159,0.5)",marginBottom:12,fontFamily:"monospace",padding:"8px 12px",background:"rgba(0,0,0,0.3)",borderRadius:4}}>
+VIRUSTOTAL: <span style={{color:"#ff4444"}}>{result.virustotal.malicious_engines} malicious</span> · <span style={{color:"#ffcc00"}}>{result.virustotal.suspicious_engines} suspicious</span> / {result.virustotal.total_engines} engines
+</div>
+)}
+{flags.length>0&&<div>
 <p style={{fontSize:14,color:"rgba(0,255,159,0.4)",marginBottom:8,fontFamily:"monospace"}}>Flags Detected:</p>
 <ul style={{listStyle:"none",padding:0,margin:0}}>
-{result.flags.map((flag,i)=>(
-<li key={flag} style={{display:"flex",alignItems:"center",gap:8,fontSize:14,fontFamily:"monospace",color:"rgba(0,255,159,0.5)",marginBottom:8,animation:`slideIn .4s ease ${.5+i*.15}s both`}}>
-<span style={{color:cfg.color}}>▶</span>{flag}
+{flags.map((flag,i)=>(
+<li key={i} style={{display:"flex",alignItems:"center",gap:8,fontSize:13,fontFamily:"monospace",color:flag.risk==="high"?"#ff4444":flag.risk==="medium"?"#ffcc00":"rgba(0,255,159,0.6)",marginBottom:8,animation:`slideIn .4s ease ${.3+i*.1}s both`,padding:"6px 10px",background:flag.risk==="high"?"rgba(255,68,68,0.07)":"rgba(255,204,0,0.05)",borderLeft:`2px solid ${flag.risk==="high"?"#ff4444":"#ffcc00"}`,borderRadius:3}}>
+<span>{flag.risk==="high"?"⚠":"◆"}</span>
+<span style={{fontWeight:600}}>{flag.check}</span>
+<span style={{opacity:.6,fontSize:11}}>— {flag.detail}</span>
 </li>
 ))}
 </ul>
 </div>}
+{flags.length===0&&<p style={{color:"rgba(0,255,159,0.5)",fontFamily:"monospace",fontSize:13}}>✓ No threat flags detected</p>}
 </div>
 )}
 
@@ -179,17 +158,34 @@ export default function App(){
 const[url,setUrl]=useState("")
 const[scanning,setScanning]=useState(false)
 const[result,setResult]=useState(null)
+const[error,setError]=useState("")
+const[logsComplete,setLogsComplete]=useState(false)
+const pendingResult=useRef(null)
 
-const handleScan=useCallback(()=>{
+const handleScan=useCallback(async()=>{
 if(!url.trim())return
 setResult(null)
+setError("")
+setLogsComplete(false)
 setScanning(true)
+pendingResult.current=null
+try{
+const res=await axios.post("https://phishing-predictor.up.railway.app/analyze",{url})
+pendingResult.current=res.data
+}catch(e){
+pendingResult.current="error"
+}
 },[url])
 
-const handleScanComplete=useCallback(()=>{
+const handleLogsComplete=useCallback(()=>{
+setLogsComplete(true)
 setScanning(false)
-setResult(analyzeUrl(url))
-},[url])
+if(pendingResult.current==="error"){
+setError("Connection failed. Check backend is running.")
+}else if(pendingResult.current){
+setResult(pendingResult.current)
+}
+},[])
 
 return(
 <>
@@ -208,7 +204,6 @@ body{background:#0a0a0a;color:#00ff9f;font-family:monospace}
 input::placeholder{color:rgba(0,255,159,.3)}
 input:focus{outline:none;border-color:#00ff9f!important;box-shadow:0 0 10px rgba(0,255,159,.5),0 0 40px rgba(0,255,159,.2),inset 0 0 20px rgba(0,255,159,.05)!important}
 .scanbtn:hover{background:#00ff9f!important;color:#0a0a0a!important}
-.scanbtn:disabled{cursor:not-allowed}
 @media(max-width:1023px){.desktop-hacker{display:none!important}}
 @media(min-width:1024px){.mobile-hacker{display:none!important}}
 `}</style>
@@ -216,7 +211,6 @@ input:focus{outline:none;border-color:#00ff9f!important;box-shadow:0 0 10px rgba
 <div style={{position:"relative",minHeight:"100vh",overflow:"hidden",background:"#0a0a0a"}}>
 <MatrixRain/>
 <div className="scanline" style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:1}}/>
-
 <div style={{position:"relative",zIndex:10,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"48px 24px",gap:32}}>
 
 <div className="mobile-hacker" style={{width:"100%",maxWidth:320}}>
@@ -257,7 +251,10 @@ style={{width:"100%",padding:16,borderRadius:8,border:"none",fontFamily:"monospa
 </button>
 </div>
 
-{scanning&&<TerminalLogs onComplete={handleScanComplete}/>}
+{scanning&&<TerminalLogs onComplete={handleLogsComplete}/>}
+
+{error&&<div style={{border:"1px solid #ff444433",borderLeft:"3px solid #ff4444",borderRadius:4,padding:"12px 16px",fontSize:12,color:"#ff4444",fontFamily:"monospace",letterSpacing:1}}>⚠ {error}</div>}
+
 {result&&!scanning&&<ScanResults result={result}/>}
 
 </div>
