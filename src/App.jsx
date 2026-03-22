@@ -11,11 +11,10 @@ const analyze=async()=>{
 if(!url.trim())return
 setLoading(true);setError("");setResult(null)
 try{const res=await axios.post("https://phishing-predictor.up.railway.app/analyze",{url});setResult(res.data)}
-catch{setError("Failed to analyze. Make sure backend is running.")}
+catch{setError("Failed to analyze. Check backend is running.")}
 setLoading(false)}
 const vc=result?.verdict==="Dangerous"?"#A32D2D":result?.verdict==="Suspicious"?"#854F0B":"#27500A"
-return(
-<div style={{maxWidth:640,margin:"0 auto",padding:"2rem 1rem",fontFamily:"sans-serif"}}>
+return(<div style={{maxWidth:640,margin:"0 auto",padding:"2rem 1rem",fontFamily:"sans-serif"}}>
 <h1 style={{fontSize:22,fontWeight:600,marginBottom:4}}>Phishing URL Detector</h1>
 <p style={{fontSize:14,color:"#888",marginBottom:24}}>Paste any URL to check if it is a phishing site</p>
 <div style={{display:"flex",gap:8,marginBottom:24}}>
