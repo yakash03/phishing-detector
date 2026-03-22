@@ -164,6 +164,14 @@ const pendingResult=useRef(null)
 
 const handleScan=useCallback(async()=>{
 if(!url.trim())return
+
+const urlPattern=/^(https?:\/\/)([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(\/.*)?$/
+if(!urlPattern.test(url.trim())){
+setError("⚠ Invalid input! Please enter a valid URL starting with http:// or https://")
+setResult(null)
+return
+}
+
 setResult(null)
 setError("")
 setLogsComplete(false)
