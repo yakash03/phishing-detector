@@ -4,4 +4,4 @@ python-whois
 requests
 python-dotenv
 gunicorn
-google-generativeai
+google-genai

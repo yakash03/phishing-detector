@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from analyzer import analyze_url
 from virustotal import check_virustotal
-import google.generativeai as genai
+from google import genai
 import os
 import json
 from dotenv import load_dotenv
@@ -11,8 +11,7 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel("gemini-1.5-flash")
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 def analyze_with_gemini(url, rule_result):
     try:
@@ -48,7 +47,7 @@ Return ONLY a JSON object with exactly these keys, no other text:
   "final_score": 85
 }}"""
 
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
         response_text = response.text.strip()
 
         if "```" in response_text:
