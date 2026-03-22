@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from analyzer import analyze_url
 from virustotal import check_virustotal
-from google import genai
+from groq import Groq
 import os
 import json
 from dotenv import load_dotenv
@@ -11,15 +11,15 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-def analyze_with_gemini(url, rule_result):
+def analyze_with_groq(url, rule_result):
     try:
         flags_text = "\n".join([f"- {f['check']}: {f['detail']}" for f in rule_result.get("flags", [])])
         vt = rule_result.get("virustotal", {})
         vt_text = f"{vt.get('malicious_engines',0)} malicious, {vt.get('suspicious_engines',0)} suspicious out of {vt.get('total_engines',0)} engines"
 
-        prompt = f"""You are a cybersecurity expert specializing in phishing URL detection. Analyze this URL and provide your expert assessment.
+        prompt = f"""You are a cybersecurity expert specializing in phishing URL detection.
 
 URL: {url}
 
@@ -29,13 +29,6 @@ Rule-based analysis found:
 - VirusTotal: {vt_text}
 - Flags detected:
 {flags_text if flags_text else "No flags detected"}
-
-Based on your expert knowledge, provide:
-1. Your overall verdict (Dangerous / Suspicious / Low Risk / Likely Safe)
-2. A confidence level (0-100)
-3. A clear 2-3 sentence explanation of WHY this URL is or isn't suspicious
-4. Any additional threats the rule-based system may have missed
-5. A recommended action for the user
 
 Return ONLY a JSON object with exactly these keys, no other text:
 {{
@@ -47,8 +40,12 @@ Return ONLY a JSON object with exactly these keys, no other text:
   "final_score": 85
 }}"""
 
-        response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
-        response_text = response.text.strip()
+        response = groq_client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        response_text = response.choices[0].message.content.strip()
 
         if "```" in response_text:
             response_text = response_text.split("```")[1]
@@ -59,7 +56,7 @@ Return ONLY a JSON object with exactly these keys, no other text:
         return ai_data
 
     except Exception as e:
-        print(f"Gemini API error: {e}")
+        print(f"Groq API error: {e}")
         return None
 
 @app.route("/analyze", methods=["POST"])
@@ -86,7 +83,7 @@ def analyze():
         })
         result["verdict"] = "Dangerous"
 
-    ai_analysis = analyze_with_gemini(url, result)
+    ai_analysis = analyze_with_groq(url, result)
 
     if ai_analysis:
         result["ai_analysis"] = ai_analysis
@@ -97,8 +94,21 @@ def analyze():
 
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({"status": "AI Phishing Detector running", "ai": "Gemini-powered"})
+    return jsonify({"status": "AI Phishing Detector running", "ai": "Groq-powered"})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(debug=False, host="0.0.0.0", port=port)
+```
+
+---
+
+**Also update `requirements.txt`:**
+```
+flask
+flask-cors
+python-whois
+requests
+python-dotenv
+gunicorn
+groq
