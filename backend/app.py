@@ -32,7 +32,7 @@ def analyze_with_groq(url, rule_result):
         prompt += '{"ai_verdict": "Dangerous", "confidence": 95, "explanation": "your explanation here", "additional_threats": "any extra threats or None detected", "recommendation": "your recommendation here", "final_score": 85}'
 
         response = groq_client.chat.completions.create(
-            model="llama3-8b-8192",
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}]
         )
 
