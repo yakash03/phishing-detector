@@ -1,5 +1,6 @@
 import{useState,useCallback,useEffect,useRef}from"react"
 import axios from"axios"
+import{auth,googleProvider,signInWithPopup,signInWithPhoneNumber,createUserWithEmailAndPassword,signInWithEmailAndPassword,signOut,RecaptchaVerifier}from"./firebase"
 
 const MatrixRain=()=>{
 const canvasRef=useRef(null)
@@ -198,7 +199,228 @@ style={{marginLeft:44,marginTop:6,padding:"4px 12px",background:"transparent",bo
 </button>
 )}
 
+// ─── AUTH SCREEN ────────────────────────────────────────────────────────────
+
+const AuthScreen=({onLogin})=>{
+const[mode,setMode]=useState("login") // login | register | phone
+const[email,setEmail]=useState("")
+const[password,setPassword]=useState("")
+const[phone,setPhone]=useState("")
+const[otp,setOtp]=useState("")
+const[otpSent,setOtpSent]=useState(false)
+const[confirmObj,setConfirmObj]=useState(null)
+const[loading,setLoading]=useState(false)
+const[error,setError]=useState("")
+const recaptchaRef=useRef(null)
+
+const inputStyle={
+width:"100%",padding:"14px 18px",background:"#121212",
+border:"2px solid #1a3a2a",borderRadius:8,fontFamily:"monospace",
+fontSize:14,color:"#00ff9f",transition:"all .3s",marginBottom:12,
+outline:"none"
+}
+const btnStyle={
+width:"100%",padding:14,borderRadius:8,border:"none",
+fontFamily:"monospace",fontWeight:700,fontSize:13,
+letterSpacing:"0.15em",cursor:"pointer",transition:"all .3s",
+background:"#00ff9f",color:"#0a0a0a",marginTop:4
+}
+const ghostBtn={
+width:"100%",padding:12,borderRadius:8,
+border:"1px solid #00ff9f44",background:"transparent",
+fontFamily:"monospace",fontSize:12,color:"rgba(0,255,159,0.7)",
+cursor:"pointer",transition:"all .3s",letterSpacing:"0.1em"
+}
+
+const handleEmailAuth=async()=>{
+if(!email||!password){setError("⚠ Fill in email and password");return}
+setLoading(true);setError("")
+try{
+if(mode==="register"){
+await createUserWithEmailAndPassword(auth,email,password)
+}else{
+await signInWithEmailAndPassword(auth,email,password)
+}
+onLogin(auth.currentUser)
+}catch(e){
+setError("⚠ "+e.message.replace("Firebase: ","").replace(/\(auth.*\)/,"").trim())
+}
+setLoading(false)
+}
+
+const handleGoogle=async()=>{
+setLoading(true);setError("")
+try{
+await signInWithPopup(auth,googleProvider)
+onLogin(auth.currentUser)
+}catch(e){
+setError("⚠ Google sign-in failed. "+e.message.replace("Firebase: ",""))
+}
+setLoading(false)
+}
+
+const setupRecaptcha=()=>{
+if(!window.recaptchaVerifier){
+window.recaptchaVerifier=new RecaptchaVerifier(auth,"recaptcha-container",{size:"invisible"})
+}
+}
+
+const handleSendOTP=async()=>{
+if(!phone){setError("⚠ Enter a valid phone number with country code");return}
+setLoading(true);setError("")
+try{
+setupRecaptcha()
+const confirmation=await signInWithPhoneNumber(auth,phone,window.recaptchaVerifier)
+setConfirmObj(confirmation)
+setOtpSent(true)
+}catch(e){
+setError("⚠ "+e.message.replace("Firebase: ",""))
+if(window.recaptchaVerifier){window.recaptchaVerifier.clear();window.recaptchaVerifier=null}
+}
+setLoading(false)
+}
+
+const handleVerifyOTP=async()=>{
+if(!otp){setError("⚠ Enter the OTP");return}
+setLoading(true);setError("")
+try{
+await confirmObj.confirm(otp)
+onLogin(auth.currentUser)
+}catch(e){
+setError("⚠ Invalid OTP. Try again.")
+}
+setLoading(false)
+}
+
+return(
+<div style={{position:"relative",zIndex:10,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:"48px 24px"}}>
+<div id="recaptcha-container"/>
+<div style={{width:"100%",maxWidth:420,animation:"slideIn .6s ease"}}>
+
+{/* Logo */}
+<div style={{display:"flex",alignItems:"center",gap:12,marginBottom:32,justifyContent:"center"}}>
+<svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+<path d="M12 2L4 6v6c0 5.5 3.5 10.7 8 12 4.5-1.3 8-6.5 8-12V6L12 2z" stroke="#00ff9f" strokeWidth="1.5" fill="rgba(0,255,159,0.1)"/>
+<path d="M9 12l2 2 4-4" stroke="#00ff9f" strokeWidth="1.5" strokeLinecap="round"/>
+</svg>
+<h1 style={{fontSize:"1.8rem",fontWeight:700,color:"#00ff9f",letterSpacing:"0.1em",textShadow:"0 0 7px rgba(0,255,159,.8),0 0 20px rgba(0,255,159,.4)",fontFamily:"monospace"}}>
+AI Phishing Detector
+</h1>
+</div>
+
+{/* Card */}
+<div style={{border:"1px solid #1a3a2a",borderRadius:12,padding:32,background:"rgba(12,18,14,0.85)",backdropFilter:"blur(12px)",boxShadow:"0 0 40px rgba(0,255,159,0.06)"}}>
+
+{/* Tab switcher */}
+{mode!=="phone"&&(
+<div style={{display:"flex",gap:0,marginBottom:28,border:"1px solid #1a3a2a",borderRadius:6,overflow:"hidden"}}>
+{["login","register"].map(m=>(
+<button key={m} onClick={()=>{setMode(m);setError("")}}
+style={{flex:1,padding:"10px 0",background:mode===m?"rgba(0,255,159,0.1)":"transparent",border:"none",fontFamily:"monospace",fontSize:12,color:mode===m?"#00ff9f":"rgba(0,255,159,0.4)",cursor:"pointer",letterSpacing:2,transition:"all .2s",borderBottom:mode===m?"2px solid #00ff9f":"2px solid transparent"}}>
+{m.toUpperCase()}
+</button>
+))}
+</div>
+)}
+
+{mode==="phone"&&(
+<div style={{marginBottom:24}}>
+<button onClick={()=>{setMode("login");setOtpSent(false);setError("")}}
+style={{background:"transparent",border:"none",color:"rgba(0,255,159,0.5)",fontFamily:"monospace",fontSize:12,cursor:"pointer",padding:0,letterSpacing:1}}>
+← BACK
+</button>
+<p style={{fontSize:16,fontWeight:700,color:"#00ff9f",fontFamily:"monospace",marginTop:8,letterSpacing:2}}>PHONE LOGIN</p>
+</div>
+)}
+
+{/* Email/Password */}
+{mode!=="phone"&&(
+<>
+<input type="email" placeholder="Email address" value={email}
+onChange={e=>setEmail(e.target.value)}
+onKeyDown={e=>e.key==="Enter"&&handleEmailAuth()}
+style={inputStyle}/>
+<input type="password" placeholder="Password" value={password}
+onChange={e=>setPassword(e.target.value)}
+onKeyDown={e=>e.key==="Enter"&&handleEmailAuth()}
+style={{...inputStyle,marginBottom:20}}/>
+<button onClick={handleEmailAuth} disabled={loading} className="scanbtn"
+style={{...btnStyle,opacity:loading?.6:1,animation:loading?"none":"pulseNeon 2s ease-in-out infinite"}}>
+{loading?"⟳  Please wait...":(mode==="register"?"⚡  CREATE ACCOUNT":"⚡  LOGIN")}
+</button>
+
+<div style={{display:"flex",alignItems:"center",gap:12,margin:"20px 0"}}>
+<div style={{flex:1,height:1,background:"#1a3a2a"}}/>
+<span style={{fontSize:11,color:"rgba(0,255,159,0.3)",fontFamily:"monospace",letterSpacing:2}}>OR</span>
+<div style={{flex:1,height:1,background:"#1a3a2a"}}/>
+</div>
+
+<div style={{display:"flex",flexDirection:"column",gap:10}}>
+<button onClick={handleGoogle} disabled={loading} className="gbtn"
+style={ghostBtn}>
+<span style={{marginRight:8}}>G</span> CONTINUE WITH GOOGLE
+</button>
+<button onClick={()=>{setMode("phone");setError("")}} style={ghostBtn}>
+📱 CONTINUE WITH PHONE
+</button>
+</div>
+</>
+)}
+
+{/* Phone OTP */}
+{mode==="phone"&&!otpSent&&(
+<>
+<p style={{fontSize:11,color:"rgba(0,255,159,0.4)",fontFamily:"monospace",marginBottom:12,letterSpacing:1}}>
+Enter number with country code (e.g. +91XXXXXXXXXX)
+</p>
+<input type="tel" placeholder="+91 98765 43210" value={phone}
+onChange={e=>setPhone(e.target.value)}
+onKeyDown={e=>e.key==="Enter"&&handleSendOTP()}
+style={inputStyle}/>
+<button onClick={handleSendOTP} disabled={loading} className="scanbtn"
+style={{...btnStyle,animation:loading?"none":"pulseNeon 2s ease-in-out infinite",opacity:loading?.6:1}}>
+{loading?"⟳  Sending OTP...":"📨  SEND OTP"}
+</button>
+</>
+)}
+
+{mode==="phone"&&otpSent&&(
+<>
+<p style={{fontSize:11,color:"rgba(0,255,159,0.5)",fontFamily:"monospace",marginBottom:12,letterSpacing:1}}>
+OTP sent to {phone}
+</p>
+<input type="text" placeholder="Enter 6-digit OTP" value={otp}
+onChange={e=>setOtp(e.target.value)}
+onKeyDown={e=>e.key==="Enter"&&handleVerifyOTP()}
+style={inputStyle} maxLength={6}/>
+<button onClick={handleVerifyOTP} disabled={loading} className="scanbtn"
+style={{...btnStyle,animation:loading?"none":"pulseNeon 2s ease-in-out infinite",opacity:loading?.6:1}}>
+{loading?"⟳  Verifying...":"✅  VERIFY OTP"}
+</button>
+<button onClick={()=>{setOtpSent(false);setOtp("")}} style={{...ghostBtn,marginTop:8}}>
+↩ RESEND OTP
+</button>
+</>
+)}
+
+{error&&(
+<div style={{marginTop:16,border:"1px solid #ff444433",borderLeft:"3px solid #ff4444",borderRadius:4,padding:"10px 14px",fontSize:12,color:"#ff4444",fontFamily:"monospace",animation:"slideIn .3s ease"}}>
+{error}
+</div>
+)}
+</div>
+
+<p style={{textAlign:"center",marginTop:16,fontSize:10,color:"rgba(0,255,159,0.2)",fontFamily:"monospace",letterSpacing:1}}>
+SECURED BY FIREBASE AUTH · END-TO-END ENCRYPTED
+</p>
+</div>
+</div>
+)}
+
+// ─── MAIN APP ────────────────────────────────────────────────────────────────
+
 export default function App(){
+const[user,setUser]=useState(undefined) // undefined=loading, null=logged out
 const[url,setUrl]=useState("")
 const[scanning,setScanning]=useState(false)
 const[result,setResult]=useState(null)
@@ -209,6 +431,19 @@ const[showHistory,setShowHistory]=useState(false)
 const pendingResult=useRef(null)
 const terminalDone=useRef(false)
 const backendDone=useRef(false)
+
+// Listen to Firebase auth state
+useEffect(()=>{
+const unsub=auth.onAuthStateChanged(u=>setUser(u||null))
+return unsub
+},[])
+
+const handleLogout=async()=>{
+await signOut(auth)
+setResult(null)
+setUrl("")
+setHistory([])
+}
 
 const showResult=useCallback((res,hist)=>{
 setScanning(false)
@@ -257,6 +492,54 @@ const currentHistory=[...history]
 if(backendDone.current)showResult(pendingResult.current,currentHistory)
 },[history,showResult])
 
+// Loading state while Firebase checks auth
+if(user===undefined){
+return(
+<>
+<style>{`*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{background:#0a0a0a;color:#00ff9f;font-family:monospace}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
+<div style={{minHeight:"100vh",background:"#0a0a0a",display:"flex",alignItems:"center",justifyContent:"center"}}>
+<MatrixRain/>
+<div style={{zIndex:10,position:"relative",display:"flex",flexDirection:"column",alignItems:"center",gap:16}}>
+<div style={{width:12,height:12,borderRadius:"50%",background:"#00ff9f",animation:"pulse 1s infinite"}}/>
+<span style={{fontFamily:"monospace",color:"rgba(0,255,159,0.5)",letterSpacing:3,fontSize:12}}>AUTHENTICATING...</span>
+</div>
+</div>
+</>
+)
+}
+
+// Not logged in → show auth screen
+if(!user){
+return(
+<>
+<style>{`
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0a;color:#00ff9f;font-family:monospace}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes eyePulse{0%,100%{opacity:.6}50%{opacity:1}}
+@keyframes armFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@keyframes floatUp{0%{opacity:0;transform:translateY(10px)}50%{opacity:.6}100%{opacity:0;transform:translateY(-40px)}}
+@keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulseNeon{0%,100%{box-shadow:0 0 10px rgba(0,255,159,.5),0 0 40px rgba(0,255,159,.2)}50%{box-shadow:0 0 20px rgba(0,255,159,.8),0 0 60px rgba(0,255,159,.4)}}
+.scanline{background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,159,.03) 2px,rgba(0,255,159,.03) 4px)}
+input::placeholder{color:rgba(0,255,159,.3)}
+input:focus{outline:none;border-color:#00ff9f!important;box-shadow:0 0 10px rgba(0,255,159,.5),0 0 40px rgba(0,255,159,.2),inset 0 0 20px rgba(0,255,159,.05)!important}
+.scanbtn:hover{background:#00cc7a!important}
+.gbtn:hover{background:rgba(0,255,159,0.08)!important;border-color:#00ff9f88!important;color:#00ff9f!important}
+`}</style>
+<div style={{position:"relative",minHeight:"100vh",overflow:"hidden",background:"#0a0a0a"}}>
+<MatrixRain/>
+<div className="scanline" style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:1}}/>
+<AuthScreen onLogin={u=>setUser(u)}/>
+</div>
+</div>
+</>
+)
+}
+
+// Logged in → main detector
 return(
 <>
 <style>{`
@@ -281,6 +564,19 @@ input:focus{outline:none;border-color:#00ff9f!important;box-shadow:0 0 10px rgba
 <div style={{position:"relative",minHeight:"100vh",overflow:"hidden",background:"#0a0a0a"}}>
 <MatrixRain/>
 <div className="scanline" style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:1}}/>
+
+{/* User bar top-right */}
+<div style={{position:"fixed",top:16,right:20,zIndex:20,display:"flex",alignItems:"center",gap:10,padding:"6px 14px",background:"rgba(0,0,0,0.6)",border:"1px solid #1a3a2a",borderRadius:20,backdropFilter:"blur(8px)"}}>
+{user.photoURL&&<img src={user.photoURL} style={{width:22,height:22,borderRadius:"50%",border:"1px solid #00ff9f44"}} alt="avatar"/>}
+<span style={{fontSize:11,color:"rgba(0,255,159,0.7)",fontFamily:"monospace",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+{user.displayName||user.email||user.phoneNumber||"USER"}
+</span>
+<button onClick={handleLogout}
+style={{background:"transparent",border:"1px solid #ff444433",borderRadius:4,color:"#ff4444",fontSize:10,padding:"2px 8px",cursor:"pointer",fontFamily:"monospace",letterSpacing:1}}>
+LOGOUT
+</button>
+</div>
+
 <div style={{position:"relative",zIndex:10,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"48px 24px",gap:32}}>
 <div className="mobile-hacker" style={{width:"100%",maxWidth:320}}><HackerScene/></div>
 <div style={{display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:64,width:"100%",maxWidth:1200}}>
