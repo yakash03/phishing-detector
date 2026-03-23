@@ -72,12 +72,7 @@ return(
 </foreignObject>
 <ellipse cx="125" cy="258" rx="10" ry="5" fill="#0d0d0d" style={{animation:"armFloat 0.3s ease-in-out infinite"}}/>
 <ellipse cx="175" cy="258" rx="10" ry="5" fill="#0d0d0d" style={{animation:"armFloat 0.3s ease-in-out infinite .15s"}}/>
-<defs>
-<radialGradient id="sg2" cx="50%" cy="50%" r="60%">
-<stop offset="0%" stopColor="#00ff9f" stopOpacity="0.15"/>
-<stop offset="100%" stopColor="#00ff9f" stopOpacity="0"/>
-</radialGradient>
-</defs>
+<defs><radialGradient id="sg2" cx="50%" cy="50%" r="60%"><stop offset="0%" stopColor="#00ff9f" stopOpacity="0.15"/><stop offset="100%" stopColor="#00ff9f" stopOpacity="0"/></radialGradient></defs>
 </svg>
 <div style={{position:"absolute",bottom:0,left:"50%",transform:"translateX(-50%)",width:192,height:32,background:"rgba(0,255,159,0.1)",borderRadius:"50%",filter:"blur(16px)"}}/>
 </div>
@@ -118,7 +113,7 @@ dangerous:{label:"DANGEROUS",color:"#ff4444",glow:"rgba(255,68,68,0.2)",icon:"�
 }
 
 const ScanResults=({result})=>{
-const verdict=result.score>=70?"dangerous":result.score>=35?"suspicious":"safe"
+const verdict=result.verdict==="Dangerous"?"dangerous":result.verdict==="Suspicious"?"suspicious":result.verdict==="Low Risk"?"suspicious":"safe"
 const cfg=verdictConfig[verdict]
 const flags=result.flags||[]
 const ai=result.ai_analysis
@@ -127,7 +122,7 @@ return(
 <div style={{border:`1px solid ${cfg.color}33`,borderRadius:8,padding:24,background:`${cfg.color}0a`,boxShadow:`0 0 15px ${cfg.glow}`,animation:"slideIn .5s ease"}}>
 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
 <span style={{fontSize:28}}>{cfg.icon}</span>
-<span style={{fontFamily:"monospace",fontSize:24,fontWeight:700,letterSpacing:"0.1em",color:cfg.color,textShadow:`0 0 10px ${cfg.color}`}}>{cfg.label}</span>
+<span style={{fontFamily:"monospace",fontSize:24,fontWeight:700,letterSpacing:"0.1em",color:cfg.color,textShadow:`0 0 10px ${cfg.color}`}}>{result.verdict.toUpperCase()}</span>
 <span style={{marginLeft:"auto",fontSize:28,fontWeight:700,color:cfg.color}}>{result.score}<span style={{fontSize:14,opacity:.5}}>/100</span></span>
 </div>
 <div style={{marginBottom:16}}>
@@ -136,46 +131,41 @@ return(
 </div>
 </div>
 {result.virustotal?.total_engines>0&&(
-<div style={{fontSize:11,color:"rgba(0,255,159,0.5)",marginBottom:12,fontFamily:"monospace",padding:"8px 12px",background:"rgba(0,0,0,0.3)",borderRadius:4}}>
+<div style={{fontSize:11,color:"rgba(0,255,159,0.5)",fontFamily:"monospace",padding:"8px 12px",background:"rgba(0,0,0,0.3)",borderRadius:4}}>
 VIRUSTOTAL: <span style={{color:"#ff4444"}}>{result.virustotal.malicious_engines} malicious</span> · <span style={{color:"#ffcc00"}}>{result.virustotal.suspicious_engines} suspicious</span> / {result.virustotal.total_engines} engines
 </div>
 )}
-{flags.length>0&&<div>
-<p style={{fontSize:14,color:"rgba(0,255,159,0.4)",marginBottom:8,fontFamily:"monospace"}}>Flags Detected:</p>
-<ul style={{listStyle:"none",padding:0,margin:0}}>
-{flags.map((flag,i)=>(
-<li key={i} style={{display:"flex",alignItems:"center",gap:8,fontSize:13,fontFamily:"monospace",color:flag.risk==="high"?"#ff4444":flag.risk==="medium"?"#ffcc00":"rgba(0,255,159,0.6)",marginBottom:8,animation:`slideIn .4s ease ${.3+i*.1}s both`,padding:"6px 10px",background:flag.risk==="high"?"rgba(255,68,68,0.07)":"rgba(255,204,0,0.05)",borderLeft:`2px solid ${flag.risk==="high"?"#ff4444":"#ffcc00"}`,borderRadius:3}}>
-<span>{flag.risk==="high"?"⚠":"◆"}</span>
-<span style={{fontWeight:600}}>{flag.check}</span>
-<span style={{opacity:.6,fontSize:11}}>— {flag.detail}</span>
-</li>
-))}
-</ul>
-</div>}
-{flags.length===0&&<p style={{color:"rgba(0,255,159,0.5)",fontFamily:"monospace",fontSize:13}}>✓ No threat flags detected</p>}
 </div>
-
 {ai&&<div style={{border:"1px solid #00ff9f33",borderRadius:8,padding:20,background:"rgba(0,255,159,0.03)",animation:"slideIn .6s ease .2s both"}}>
 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
-<svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#00ff9f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-</svg>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#00ff9f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
 <span style={{fontSize:13,fontWeight:700,color:"#00ff9f",letterSpacing:2}}>GROQ AI ANALYSIS</span>
 <span style={{marginLeft:"auto",fontSize:10,color:"rgba(0,255,159,0.4)",border:"1px solid #00ff9f22",padding:"2px 8px",borderRadius:20}}>{ai.confidence}% CONFIDENCE</span>
 </div>
-<div style={{fontSize:13,color:"rgba(0,255,159,0.8)",lineHeight:1.7,marginBottom:12,padding:"10px 14px",background:"rgba(0,0,0,0.2)",borderRadius:6,borderLeft:"3px solid #00ff9f44"}}>
-{ai.explanation}
-</div>
+<div style={{fontSize:13,color:"rgba(0,255,159,0.8)",lineHeight:1.7,marginBottom:12,padding:"10px 14px",background:"rgba(0,0,0,0.2)",borderRadius:6,borderLeft:"3px solid #00ff9f44"}}>{ai.explanation}</div>
 {ai.additional_threats&&ai.additional_threats!=="None detected"&&(
 <div style={{fontSize:12,color:"#ffcc00",marginBottom:10,padding:"8px 12px",background:"rgba(255,204,0,0.05)",borderRadius:4,borderLeft:"2px solid #ffcc0044"}}>
 <span style={{fontWeight:700,letterSpacing:1}}>⚠ ADDITIONAL THREATS: </span>{ai.additional_threats}
 </div>
 )}
 <div style={{fontSize:12,color:"rgba(0,255,159,0.6)",padding:"8px 12px",background:"rgba(0,255,159,0.04)",borderRadius:4,borderLeft:"2px solid #00ff9f33"}}>
-<span style={{fontWeight:700,letterSpacing:1}}>✅ RECOMMENDATION: </span>{ai.recommendation}
+<span style={{fontWeight:700,letterSpacing:1}}>RECOMMENDATION: </span>{ai.recommendation}
 </div>
 </div>}
-
+{flags.length>0&&<div style={{border:"1px solid #ffffff11",borderRadius:8,padding:16,background:"rgba(0,0,0,0.2)",animation:"slideIn .6s ease .3s both"}}>
+<p style={{fontSize:11,color:"rgba(0,255,159,0.4)",marginBottom:10,fontFamily:"monospace",letterSpacing:3}}>RULE-BASED FLAGS — {flags.length} DETECTED</p>
+<ul style={{listStyle:"none",padding:0,margin:0}}>
+{flags.map((flag,i)=>(
+<li key={i} style={{display:"flex",alignItems:"flex-start",gap:8,fontSize:12,fontFamily:"monospace",marginBottom:8,padding:"8px 10px",background:flag.risk==="high"?"rgba(255,68,68,0.07)":flag.risk==="medium"?"rgba(255,204,0,0.05)":"rgba(0,255,159,0.05)",borderLeft:`2px solid ${flag.risk==="high"?"#ff4444":flag.risk==="medium"?"#ffcc00":"#00ff9f"}`,borderRadius:3}}>
+<span style={{color:flag.risk==="high"?"#ff4444":flag.risk==="medium"?"#ffcc00":"#00ff9f",flexShrink:0}}>{flag.risk==="high"?"⚠":"◆"}</span>
+<div>
+<span style={{fontWeight:700,color:flag.risk==="high"?"#ff4444":flag.risk==="medium"?"#ffcc00":"#00ff9f"}}>{flag.check}</span>
+<span style={{color:"rgba(255,255,255,0.3)",marginLeft:6}}>— {flag.detail}</span>
+</div>
+</li>
+))}
+</ul>
+</div>}
 </div>
 )}
 
@@ -185,41 +175,55 @@ const[scanning,setScanning]=useState(false)
 const[result,setResult]=useState(null)
 const[error,setError]=useState("")
 const[logsComplete,setLogsComplete]=useState(false)
+const[history,setHistory]=useState(()=>{try{return JSON.parse(localStorage.getItem("scanHistory"))||[]}catch{return[]}})
+const[showHistory,setShowHistory]=useState(false)
 const pendingResult=useRef(null)
+const terminalDone=useRef(false)
+const backendDone=useRef(false)
+
+const showResult=useCallback((res,hist)=>{
+setScanning(false)
+if(!res||res==="error"){setError("Connection failed. Try again.");return}
+setResult(res)
+const newScan={url:res.url||"unknown",score:res.score,verdict:res.verdict,timestamp:new Date().toLocaleString(),id:Date.now()}
+const updated=[newScan,...hist].slice(0,20)
+setHistory(updated)
+try{localStorage.setItem("scanHistory",JSON.stringify(updated))}catch(e){console.log(e)}
+},[])
 
 const handleScan=useCallback(async()=>{
 if(!url.trim())return
-
-const urlPattern=/^https?:\/\/(([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(:\d+)?(\/.*)?$/
-if(!urlPattern.test(url.trim())){
-setError("⚠ Invalid input! Please enter a valid URL starting with http:// or https://")
+const trimmed=url.trim()
+const isJustNumbers=/^\d+$/.test(trimmed)
+const isJustWords=/^[a-zA-Z\s]+$/.test(trimmed)
+const hasProtocol=trimmed.startsWith("http://")||trimmed.startsWith("https://")
+const hasDot=trimmed.includes(".")
+if(isJustNumbers||isJustWords||(!hasProtocol&&!hasDot)){
+setError("⚠ Invalid input! Please enter a valid URL like https://example.com")
 setResult(null)
 return
 }
-
-
 setResult(null)
 setError("")
 setLogsComplete(false)
 setScanning(true)
 pendingResult.current=null
+terminalDone.current=false
+backendDone.current=false
+const currentHistory=[...history]
 try{
-const res=await axios.post("https://phishing-predictor.up.railway.app/analyze",{url})
+const res=await axios.post("https://phishing-predictor.up.railway.app/analyze",{url},{timeout:90000})
 pendingResult.current=res.data
-}catch(e){
-pendingResult.current="error"
-}
-},[url])
+}catch{pendingResult.current="error"}
+backendDone.current=true
+if(terminalDone.current)showResult(pendingResult.current,currentHistory)
+},[url,history,showResult])
 
 const handleLogsComplete=useCallback(()=>{
-setLogsComplete(true)
-setScanning(false)
-if(pendingResult.current==="error"){
-setError("Connection failed. Check backend is running.")
-}else if(pendingResult.current){
-setResult(pendingResult.current)
-}
-},[])
+terminalDone.current=true
+const currentHistory=[...history]
+if(backendDone.current)showResult(pendingResult.current,currentHistory)
+},[history,showResult])
 
 return(
 <>
@@ -238,21 +242,16 @@ body{background:#0a0a0a;color:#00ff9f;font-family:monospace}
 input::placeholder{color:rgba(0,255,159,.3)}
 input:focus{outline:none;border-color:#00ff9f!important;box-shadow:0 0 10px rgba(0,255,159,.5),0 0 40px rgba(0,255,159,.2),inset 0 0 20px rgba(0,255,159,.05)!important}
 .scanbtn:hover{background:#00ff9f!important;color:#0a0a0a!important}
+.histrow:hover{background:rgba(0,255,159,0.06)!important}
 @media(max-width:1023px){.desktop-hacker{display:none!important}}
 @media(min-width:1024px){.mobile-hacker{display:none!important}}
 `}</style>
-
 <div style={{position:"relative",minHeight:"100vh",overflow:"hidden",background:"#0a0a0a"}}>
 <MatrixRain/>
 <div className="scanline" style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:1}}/>
 <div style={{position:"relative",zIndex:10,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"48px 24px",gap:32}}>
-
-<div className="mobile-hacker" style={{width:"100%",maxWidth:320}}>
-<HackerScene/>
-</div>
-
+<div className="mobile-hacker" style={{width:"100%",maxWidth:320}}><HackerScene/></div>
 <div style={{display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:64,width:"100%",maxWidth:1200}}>
-
 <div style={{flex:1,maxWidth:560,width:"100%"}}>
 <div style={{display:"flex",flexDirection:"column",gap:24}}>
 
@@ -285,19 +284,42 @@ style={{width:"100%",padding:16,borderRadius:8,border:"none",fontFamily:"monospa
 </button>
 </div>
 
+{history.length>0&&<div style={{animation:"slideIn .3s ease"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:"rgba(0,255,159,0.04)",border:"1px solid #00ff9f33",borderRadius:showHistory?"8px 8px 0 0":"8px",cursor:"pointer"}} onClick={()=>setShowHistory(s=>!s)}>
+<div style={{display:"flex",alignItems:"center",gap:8}}>
+<span style={{fontSize:10,color:"#00ff9f"}}>{showHistory?"▲":"▼"}</span>
+<span style={{fontSize:11,color:"rgba(0,255,159,0.8)",fontFamily:"monospace",letterSpacing:2}}>SCAN HISTORY — {history.length} SCANS</span>
+</div>
+<button onClick={e=>{e.stopPropagation();setHistory([]);localStorage.removeItem("scanHistory");setShowHistory(false)}}
+style={{background:"transparent",border:"1px solid #ff444433",borderRadius:3,color:"#ff4444",fontSize:10,padding:"2px 8px",cursor:"pointer",fontFamily:"monospace"}}>
+CLEAR
+</button>
+</div>
+{showHistory&&<div style={{border:"1px solid #00ff9f22",borderTop:"none",borderRadius:"0 0 8px 8px",background:"rgba(0,0,0,0.6)",maxHeight:260,overflowY:"auto"}}>
+{history.map(h=>(
+<div key={h.id} className="histrow" onClick={()=>{setUrl(h.url);setShowHistory(false)}}
+style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:"1px solid #00ff9f0a",cursor:"pointer",transition:"all .15s"}}>
+<div style={{width:8,height:8,borderRadius:"50%",flexShrink:0,background:h.verdict==="Dangerous"?"#ff4444":h.verdict==="Suspicious"||h.verdict==="Low Risk"?"#ffcc00":"#00ff9f"}}/>
+<div style={{flex:1,minWidth:0}}>
+<div style={{fontSize:11,color:"rgba(0,255,159,0.85)",fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.url}</div>
+<div style={{fontSize:9,color:"rgba(0,255,159,0.3)",marginTop:2,letterSpacing:1}}>{h.timestamp}</div>
+</div>
+<div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",flexShrink:0,gap:1}}>
+<span style={{fontSize:11,fontWeight:700,color:h.verdict==="Dangerous"?"#ff4444":h.verdict==="Suspicious"||h.verdict==="Low Risk"?"#ffcc00":"#00ff9f",fontFamily:"monospace"}}>{h.score}/100</span>
+<span style={{fontSize:9,color:h.verdict==="Dangerous"?"#ff4444":h.verdict==="Suspicious"||h.verdict==="Low Risk"?"#ffcc00":"#00ff9f",letterSpacing:1}}>{h.verdict.toUpperCase()}</span>
+</div>
+</div>
+))}
+</div>}
+</div>}
+
 {scanning&&<TerminalLogs onComplete={handleLogsComplete}/>}
-
-{error&&<div style={{border:"1px solid #ff444433",borderLeft:"3px solid #ff4444",borderRadius:4,padding:"12px 16px",fontSize:12,color:"#ff4444",fontFamily:"monospace",letterSpacing:1}}>⚠ {error}</div>}
-
+{error&&<div style={{border:"1px solid #ff444433",borderLeft:"3px solid #ff4444",borderRadius:4,padding:"12px 16px",fontSize:12,color:"#ff4444",fontFamily:"monospace",letterSpacing:1}}>{error}</div>}
 {result&&!scanning&&<ScanResults result={result}/>}
 
 </div>
 </div>
-
-<div className="desktop-hacker" style={{flex:1,maxWidth:480,display:"flex",alignItems:"center",justifyContent:"center"}}>
-<HackerScene/>
-</div>
-
+<div className="desktop-hacker" style={{flex:1,maxWidth:480,display:"flex",alignItems:"center",justifyContent:"center"}}><HackerScene/></div>
 </div>
 </div>
 </div>
