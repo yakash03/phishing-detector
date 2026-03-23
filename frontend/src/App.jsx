@@ -169,6 +169,35 @@ VIRUSTOTAL: <span style={{color:"#ff4444"}}>{result.virustotal.malicious_engines
 </div>
 )}
 
+const sendNotification=(verdict,score,url)=>{
+if(!("Notification" in window))return
+const fire=()=>{
+new Notification(
+verdict==="Dangerous"?"🚫 DANGEROUS URL DETECTED!":"⚠️ Suspicious URL Detected",
+{body:`Risk Score: ${score}/100\n${url}`,tag:"phishing-alert",requireInteraction:verdict==="Dangerous"}
+)}
+if(Notification.permission==="granted")fire()
+else if(Notification.permission!=="denied"){
+Notification.requestPermission().then(p=>{if(p==="granted")fire()})
+}
+}
+
+const NotificationButton=()=>{
+const[perm,setPerm]=useState(typeof Notification!=="undefined"?Notification.permission:"denied")
+if(perm==="granted")return(
+<div style={{marginLeft:44,marginTop:6,display:"flex",alignItems:"center",gap:6,fontSize:11,color:"rgba(0,255,159,0.5)"}}>
+<span style={{width:6,height:6,borderRadius:"50%",background:"#00ff9f",display:"inline-block",animation:"pulse 2s infinite"}}/>
+<span>Threat alerts enabled</span>
+</div>
+)
+if(perm==="denied")return null
+return(
+<button onClick={()=>Notification.requestPermission().then(p=>setPerm(p))}
+style={{marginLeft:44,marginTop:6,padding:"4px 12px",background:"transparent",border:"1px solid #00ff9f44",borderRadius:4,color:"rgba(0,255,159,0.6)",fontSize:11,fontFamily:"monospace",cursor:"pointer",letterSpacing:1}}>
+🔔 ENABLE THREAT ALERTS
+</button>
+)}
+
 export default function App(){
 const[url,setUrl]=useState("")
 const[scanning,setScanning]=useState(false)
@@ -189,7 +218,10 @@ const newScan={url:res.url||"unknown",score:res.score,verdict:res.verdict,timest
 const updated=[newScan,...hist].slice(0,20)
 setHistory(updated)
 try{localStorage.setItem("scanHistory",JSON.stringify(updated))}catch(e){console.log(e)}
-},[])
+if(res.verdict==="Dangerous"||res.verdict==="Suspicious"){
+sendNotification(res.verdict,res.score,res.url||url)
+}
+},[url])
 
 const handleScan=useCallback(async()=>{
 if(!url.trim())return
@@ -266,6 +298,7 @@ AI Phishing Detector
 </h1>
 </div>
 <p style={{color:"rgba(0,255,159,.4)",fontSize:14,marginLeft:44}}>Analyze URLs for threats in real-time</p>
+<NotificationButton/>
 </div>
 
 <div style={{animation:"slideIn .5s ease .2s both"}}>
