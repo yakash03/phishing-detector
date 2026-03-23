@@ -461,8 +461,8 @@ sendNotification(res.verdict,res.score,res.url||url)
 const handleScan=useCallback(async()=>{
 if(!url.trim())return
 const trimmed=url.trim()
-const isJustNumbers=/^\d+$/.test(trimmed)
-const isJustWords=/^[a-zA-Z\s]+$/.test(trimmed)
+const isJustNumbers=new RegExp("^\\d+$").test(trimmed)
+const isJustWords=new RegExp("^[a-zA-Z\\s]+$").test(trimmed)
 const hasProtocol=trimmed.startsWith("http://")||trimmed.startsWith("https://")
 const hasDot=trimmed.includes(".")
 if(isJustNumbers||isJustWords||(!hasProtocol&&!hasDot)){
