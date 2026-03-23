@@ -530,13 +530,12 @@ input:focus{outline:none;border-color:#00ff9f!important;box-shadow:0 0 10px rgba
 .gbtn:hover{background:rgba(0,255,159,0.08)!important;border-color:#00ff9f88!important;color:#00ff9f!important}
 `}</style>
 <div style={{position:"relative",minHeight:"100vh",overflow:"hidden",background:"#0a0a0a"}}>
-<MatrixRain/>
-<div className="scanline" style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:1}}/>
-<AuthScreen onLogin={u=>setUser(u)}/>
-</div>
-</div>
-</>
-)
+        <MatrixRain/>
+        <div className="scanline" style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:1}}/>
+        <AuthScreen onLogin={u=>setUser(u)}/>
+      </div>
+    </>
+  )
 }
 
 // Logged in → main detector
