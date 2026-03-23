@@ -314,6 +314,27 @@ style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBott
 </div>}
 
 {scanning&&<TerminalLogs onComplete={handleLogsComplete}/>}
+{history.length>0&&<div style={{animation:"slideIn .3s ease"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:"rgba(0,255,159,0.04)",border:"1px solid #00ff9f33",borderRadius:showHistory?"8px 8px 0 0":"8px",cursor:"pointer"}} onClick={()=>setShowHistory(s=>!s)}>
+<div style={{display:"flex",alignItems:"center",gap:8}}>
+<span style={{fontSize:10,color:"#00ff9f"}}>{showHistory?"▲":"▼"}</span>
+<span style={{fontSize:11,color:"rgba(0,255,159,0.8)",letterSpacing:2}}>SCAN HISTORY — {history.length} SCANS</span>
+</div>
+<button onClick={e=>{e.stopPropagation();setHistory([]);localStorage.removeItem("scanHistory");setShowHistory(false)}} style={{background:"transparent",border:"1px solid #ff444433",borderRadius:3,color:"#ff4444",fontSize:10,padding:"2px 8px",cursor:"pointer",fontFamily:"monospace"}}>CLEAR</button>
+</div>
+{showHistory&&<div style={{border:"1px solid #00ff9f22",borderTop:"none",borderRadius:"0 0 8px 8px",background:"rgba(0,0,0,0.6)",maxHeight:260,overflowY:"auto"}}>
+{history.map(h=>(
+<div key={h.id} onClick={()=>{setUrl(h.url);setShowHistory(false)}} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:"1px solid #00ff9f0a",cursor:"pointer"}}>
+<div style={{width:8,height:8,borderRadius:"50%",flexShrink:0,background:h.verdict==="Dangerous"?"#ff4444":h.verdict==="Suspicious"?"#ffcc00":"#00ff9f"}}/>
+<div style={{flex:1,minWidth:0}}>
+<div style={{fontSize:11,color:"rgba(0,255,159,0.85)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.url}</div>
+<div style={{fontSize:9,color:"rgba(0,255,159,0.3)",marginTop:2}}>{h.timestamp}</div>
+</div>
+<span style={{fontSize:11,fontWeight:700,color:h.verdict==="Dangerous"?"#ff4444":h.verdict==="Suspicious"?"#ffcc00":"#00ff9f",flexShrink:0}}>{h.score}/100</span>
+</div>
+))}
+</div>}
+</div>}
 {error&&<div style={{border:"1px solid #ff444433",borderLeft:"3px solid #ff4444",borderRadius:4,padding:"12px 16px",fontSize:12,color:"#ff4444",fontFamily:"monospace",letterSpacing:1}}>{error}</div>}
 {result&&!scanning&&<ScanResults result={result}/>}
 
