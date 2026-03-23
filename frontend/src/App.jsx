@@ -197,22 +197,6 @@ setResult(null)
 return
 }
 
-const finish=useCallback(()=>{
-const res=apiResult.current
-const u=currentUrl.current
-setScanning(false)
-if(!res||res==="error"){setError("Connection failed. Try again.");return}
-setResult(res)
-const scan={url:u,score:res.score,verdict:res.verdict,timestamp:new Date().toLocaleString(),id:Date.now()}
-try{
-const existing=JSON.parse(localStorage.getItem("scanHistory")||"[]")
-const updated=[scan,...existing].slice(0,20)
-localStorage.setItem("scanHistory",JSON.stringify(updated))
-setHistory(updated)
-console.log("History saved!",updated)
-}catch(e){console.error("History save failed",e)}
-},[])
-
 
 setResult(null)
 setError("")
