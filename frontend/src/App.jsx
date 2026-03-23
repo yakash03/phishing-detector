@@ -199,10 +199,113 @@ style={{marginLeft:44,marginTop:6,padding:"4px 12px",background:"transparent",bo
 </button>
 )}
 
+// ─── QR SCANNER ─────────────────────────────────────────────────────────────
+
+const QRScanner=({onURLFound})=>{
+const[dragging,setDragging]=useState(false)
+const[qrError,setQrError]=useState("")
+const[qrLoading,setQrLoading]=useState(false)
+const[qrSuccess,setQrSuccess]=useState("")
+const fileRef=useRef(null)
+
+const scanQR=async(file)=>{
+if(!file)return
+setQrLoading(true)
+setQrError("")
+setQrSuccess("")
+const img=new Image()
+const objectUrl=URL.createObjectURL(file)
+img.onload=async()=>{
+const canvas=document.createElement("canvas")
+canvas.width=img.width
+canvas.height=img.height
+const ctx=canvas.getContext("2d")
+ctx.drawImage(img,0,0)
+const imageData=ctx.getImageData(0,0,canvas.width,canvas.height)
+try{
+const jsQR=(await import("jsqr")).default
+const code=jsQR(imageData.data,imageData.width,imageData.height)
+if(code&&code.data){
+setQrSuccess("✅ QR decoded: "+code.data.slice(0,40)+(code.data.length>40?"...":""))
+onURLFound(code.data)
+}else{
+setQrError("⚠ No QR code detected. Try a clearer or higher-res image.")
+}
+}catch(e){
+setQrError("⚠ QR scan failed. Make sure jsqr is installed.")
+}
+setQrLoading(false)
+URL.revokeObjectURL(objectUrl)
+}
+img.onerror=()=>{setQrError("⚠ Could not read image file.");setQrLoading(false)}
+img.src=objectUrl
+}
+
+const handleDrop=e=>{
+e.preventDefault()
+setDragging(false)
+const file=e.dataTransfer.files[0]
+if(file&&file.type.startsWith("image/"))scanQR(file)
+else setQrError("⚠ Please drop an image file (PNG, JPG, WEBP).")
+}
+
+const handleFile=e=>{
+const file=e.target.files[0]
+if(file)scanQR(file)
+e.target.value=""
+}
+
+return(
+<div style={{animation:"slideIn .4s ease"}}>
+<p style={{fontSize:11,color:"rgba(0,255,159,0.4)",fontFamily:"monospace",letterSpacing:2,marginBottom:8}}>▣ OR SCAN A QR CODE</p>
+<div
+onDragOver={e=>{e.preventDefault();setDragging(true)}}
+onDragLeave={()=>setDragging(false)}
+onDrop={handleDrop}
+onClick={()=>fileRef.current.click()}
+style={{border:`2px dashed ${dragging?"#00ff9f":"#1a3a2a"}`,borderRadius:8,padding:"20px 16px",textAlign:"center",cursor:"pointer",background:dragging?"rgba(0,255,159,0.07)":"rgba(0,0,0,0.2)",transition:"all .3s",position:"relative"}}>
+<input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleFile}/>
+{qrLoading?(
+<div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
+<div style={{width:10,height:10,borderRadius:"50%",background:"#00ff9f",animation:"pulse 1s infinite"}}/>
+<span style={{fontSize:12,color:"rgba(0,255,159,0.6)",fontFamily:"monospace",letterSpacing:2}}>DECODING QR...</span>
+</div>
+):(
+<div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
+<svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+<rect x="3" y="3" width="7" height="7" rx="1" stroke="#00ff9f" strokeWidth="1.5" strokeOpacity="0.6"/>
+<rect x="14" y="3" width="7" height="7" rx="1" stroke="#00ff9f" strokeWidth="1.5" strokeOpacity="0.6"/>
+<rect x="3" y="14" width="7" height="7" rx="1" stroke="#00ff9f" strokeWidth="1.5" strokeOpacity="0.6"/>
+<rect x="5" y="5" width="3" height="3" fill="#00ff9f" fillOpacity="0.5"/>
+<rect x="16" y="5" width="3" height="3" fill="#00ff9f" fillOpacity="0.5"/>
+<rect x="5" y="16" width="3" height="3" fill="#00ff9f" fillOpacity="0.5"/>
+<rect x="14" y="14" width="3" height="3" rx="0.5" fill="#00ff9f" fillOpacity="0.4"/>
+<rect x="18" y="14" width="3" height="3" rx="0.5" fill="#00ff9f" fillOpacity="0.4"/>
+<rect x="14" y="18" width="3" height="3" rx="0.5" fill="#00ff9f" fillOpacity="0.4"/>
+<rect x="18" y="18" width="3" height="3" rx="0.5" fill="#00ff9f" fillOpacity="0.4"/>
+</svg>
+<span style={{fontSize:13,color:"rgba(0,255,159,0.7)",fontFamily:"monospace",letterSpacing:1}}>DROP QR IMAGE HERE</span>
+<span style={{fontSize:10,color:"rgba(0,255,159,0.3)",fontFamily:"monospace"}}>or click to upload · PNG JPG WEBP</span>
+</div>
+)}
+</div>
+{qrSuccess&&(
+<div style={{marginTop:8,border:"1px solid #00ff9f33",borderLeft:"3px solid #00ff9f",borderRadius:4,padding:"8px 12px",fontSize:11,color:"#00ff9f",fontFamily:"monospace",animation:"slideIn .3s ease"}}>
+{qrSuccess}
+</div>
+)}
+{qrError&&(
+<div style={{marginTop:8,border:"1px solid #ff444433",borderLeft:"3px solid #ff4444",borderRadius:4,padding:"8px 12px",fontSize:11,color:"#ff4444",fontFamily:"monospace",animation:"slideIn .3s ease"}}>
+{qrError}
+</div>
+)}
+</div>
+)}
+
 // ─── AUTH SCREEN ────────────────────────────────────────────────────────────
 
 const AuthScreen=({onLogin})=>{
-const[mode,setMode]=useState("login") // login | register | phone
+const[mode,setMode]=useState("login")
 const[email,setEmail]=useState("")
 const[password,setPassword]=useState("")
 const[phone,setPhone]=useState("")
@@ -211,64 +314,34 @@ const[otpSent,setOtpSent]=useState(false)
 const[confirmObj,setConfirmObj]=useState(null)
 const[loading,setLoading]=useState(false)
 const[error,setError]=useState("")
-const recaptchaRef=useRef(null)
 
-const inputStyle={
-width:"100%",padding:"14px 18px",background:"#121212",
-border:"2px solid #1a3a2a",borderRadius:8,fontFamily:"monospace",
-fontSize:14,color:"#00ff9f",transition:"all .3s",marginBottom:12,
-outline:"none"
-}
-const btnStyle={
-width:"100%",padding:14,borderRadius:8,border:"none",
-fontFamily:"monospace",fontWeight:700,fontSize:13,
-letterSpacing:"0.15em",cursor:"pointer",transition:"all .3s",
-background:"#00ff9f",color:"#0a0a0a",marginTop:4
-}
-const ghostBtn={
-width:"100%",padding:12,borderRadius:8,
-border:"1px solid #00ff9f44",background:"transparent",
-fontFamily:"monospace",fontSize:12,color:"rgba(0,255,159,0.7)",
-cursor:"pointer",transition:"all .3s",letterSpacing:"0.1em"
-}
+const inputStyle={width:"100%",padding:"14px 18px",background:"#121212",border:"2px solid #1a3a2a",borderRadius:8,fontFamily:"monospace",fontSize:14,color:"#00ff9f",transition:"all .3s",marginBottom:12,outline:"none"}
+const btnStyle={width:"100%",padding:14,borderRadius:8,border:"none",fontFamily:"monospace",fontWeight:700,fontSize:13,letterSpacing:"0.15em",cursor:"pointer",transition:"all .3s",background:"#00ff9f",color:"#0a0a0a",marginTop:4}
+const ghostBtn={width:"100%",padding:12,borderRadius:8,border:"1px solid #00ff9f44",background:"transparent",fontFamily:"monospace",fontSize:12,color:"rgba(0,255,159,0.7)",cursor:"pointer",transition:"all .3s",letterSpacing:"0.1em"}
 
 const handleEmailAuth=async()=>{
 if(!email||!password){setError("⚠ Fill in email and password");return}
 setLoading(true);setError("")
 try{
-if(mode==="register"){
-await createUserWithEmailAndPassword(auth,email,password)
-}else{
-await signInWithEmailAndPassword(auth,email,password)
-}
+if(mode==="register"){await createUserWithEmailAndPassword(auth,email,password)}
+else{await signInWithEmailAndPassword(auth,email,password)}
 onLogin(auth.currentUser)
-}catch(e){
-setError("⚠ "+e.message.replace("Firebase: ","").replace(/\(auth.*\)/,"").trim())
-}
+}catch(e){setError("⚠ "+e.message.replace("Firebase: ","").replace(/\(auth.*\)/,"").trim())}
 setLoading(false)
 }
 
 const handleGoogle=async()=>{
 setLoading(true);setError("")
-try{
-await signInWithPopup(auth,googleProvider)
-onLogin(auth.currentUser)
-}catch(e){
-setError("⚠ Google sign-in failed. "+e.message.replace("Firebase: ",""))
-}
+try{await signInWithPopup(auth,googleProvider);onLogin(auth.currentUser)}
+catch(e){setError("⚠ Google sign-in failed. "+e.message.replace("Firebase: ",""))}
 setLoading(false)
 }
 
 const setupRecaptcha=()=>{
 try{
-if(window.recaptchaVerifier){
-window.recaptchaVerifier.clear()
-window.recaptchaVerifier=null
-}
+if(window.recaptchaVerifier){window.recaptchaVerifier.clear();window.recaptchaVerifier=null}
 window.recaptchaVerifier=new RecaptchaVerifier(auth,"recaptcha-container",{size:"invisible"})
-}catch(e){
-window.recaptchaVerifier=null
-}
+}catch(e){window.recaptchaVerifier=null}
 }
 
 const handleSendOTP=async()=>{
@@ -277,8 +350,7 @@ setLoading(true);setError("")
 try{
 setupRecaptcha()
 const confirmation=await signInWithPhoneNumber(auth,phone,window.recaptchaVerifier)
-setConfirmObj(confirmation)
-setOtpSent(true)
+setConfirmObj(confirmation);setOtpSent(true)
 }catch(e){
 setError("⚠ "+e.message.replace("Firebase: ","").replace(/\(auth.*\)/,"").trim())
 try{if(window.recaptchaVerifier){window.recaptchaVerifier.clear();window.recaptchaVerifier=null}}catch(_){}
@@ -289,12 +361,8 @@ setLoading(false)
 const handleVerifyOTP=async()=>{
 if(!otp){setError("⚠ Enter the OTP");return}
 setLoading(true);setError("")
-try{
-await confirmObj.confirm(otp)
-onLogin(auth.currentUser)
-}catch(e){
-setError("⚠ Invalid OTP. Try again.")
-}
+try{await confirmObj.confirm(otp);onLogin(auth.currentUser)}
+catch(e){setError("⚠ Invalid OTP. Try again.")}
 setLoading(false)
 }
 
@@ -302,22 +370,14 @@ return(
 <div style={{position:"relative",zIndex:10,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:"48px 24px"}}>
 <div id="recaptcha-container"/>
 <div style={{width:"100%",maxWidth:420,animation:"slideIn .6s ease"}}>
-
-{/* Logo */}
 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:32,justifyContent:"center"}}>
 <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
 <path d="M12 2L4 6v6c0 5.5 3.5 10.7 8 12 4.5-1.3 8-6.5 8-12V6L12 2z" stroke="#00ff9f" strokeWidth="1.5" fill="rgba(0,255,159,0.1)"/>
 <path d="M9 12l2 2 4-4" stroke="#00ff9f" strokeWidth="1.5" strokeLinecap="round"/>
 </svg>
-<h1 style={{fontSize:"1.8rem",fontWeight:700,color:"#00ff9f",letterSpacing:"0.1em",textShadow:"0 0 7px rgba(0,255,159,.8),0 0 20px rgba(0,255,159,.4)",fontFamily:"monospace"}}>
-AI Phishing Detector
-</h1>
+<h1 style={{fontSize:"1.8rem",fontWeight:700,color:"#00ff9f",letterSpacing:"0.1em",textShadow:"0 0 7px rgba(0,255,159,.8),0 0 20px rgba(0,255,159,.4)",fontFamily:"monospace"}}>AI Phishing Detector</h1>
 </div>
-
-{/* Card */}
 <div style={{border:"1px solid #1a3a2a",borderRadius:12,padding:32,background:"rgba(12,18,14,0.85)",backdropFilter:"blur(12px)",boxShadow:"0 0 40px rgba(0,255,159,0.06)"}}>
-
-{/* Tab switcher */}
 {mode!=="phone"&&(
 <div style={{display:"flex",gap:0,marginBottom:28,border:"1px solid #1a3a2a",borderRadius:6,overflow:"hidden"}}>
 {["login","register"].map(m=>(
@@ -328,97 +388,54 @@ style={{flex:1,padding:"10px 0",background:mode===m?"rgba(0,255,159,0.1)":"trans
 ))}
 </div>
 )}
-
 {mode==="phone"&&(
 <div style={{marginBottom:24}}>
-<button onClick={()=>{setMode("login");setOtpSent(false);setError("")}}
-style={{background:"transparent",border:"none",color:"rgba(0,255,159,0.5)",fontFamily:"monospace",fontSize:12,cursor:"pointer",padding:0,letterSpacing:1}}>
-← BACK
-</button>
+<button onClick={()=>{setMode("login");setOtpSent(false);setError("")}} style={{background:"transparent",border:"none",color:"rgba(0,255,159,0.5)",fontFamily:"monospace",fontSize:12,cursor:"pointer",padding:0,letterSpacing:1}}>← BACK</button>
 <p style={{fontSize:16,fontWeight:700,color:"#00ff9f",fontFamily:"monospace",marginTop:8,letterSpacing:2}}>PHONE LOGIN</p>
 </div>
 )}
-
-{/* Email/Password */}
 {mode!=="phone"&&(
 <>
-<input type="email" placeholder="Email address" value={email}
-onChange={e=>setEmail(e.target.value)}
-onKeyDown={e=>e.key==="Enter"&&handleEmailAuth()}
-style={inputStyle}/>
-<input type="password" placeholder="Password" value={password}
-onChange={e=>setPassword(e.target.value)}
-onKeyDown={e=>e.key==="Enter"&&handleEmailAuth()}
-style={{...inputStyle,marginBottom:20}}/>
-<button onClick={handleEmailAuth} disabled={loading} className="scanbtn"
-style={{...btnStyle,opacity:loading?.6:1,animation:loading?"none":"pulseNeon 2s ease-in-out infinite"}}>
+<input type="email" placeholder="Email address" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleEmailAuth()} style={inputStyle}/>
+<input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleEmailAuth()} style={{...inputStyle,marginBottom:20}}/>
+<button onClick={handleEmailAuth} disabled={loading} className="scanbtn" style={{...btnStyle,opacity:loading?.6:1,animation:loading?"none":"pulseNeon 2s ease-in-out infinite"}}>
 {loading?"⟳  Please wait...":(mode==="register"?"⚡  CREATE ACCOUNT":"⚡  LOGIN")}
 </button>
-
 <div style={{display:"flex",alignItems:"center",gap:12,margin:"20px 0"}}>
 <div style={{flex:1,height:1,background:"#1a3a2a"}}/>
 <span style={{fontSize:11,color:"rgba(0,255,159,0.3)",fontFamily:"monospace",letterSpacing:2}}>OR</span>
 <div style={{flex:1,height:1,background:"#1a3a2a"}}/>
 </div>
-
 <div style={{display:"flex",flexDirection:"column",gap:10}}>
-<button onClick={handleGoogle} disabled={loading} className="gbtn"
-style={ghostBtn}>
-<span style={{marginRight:8}}>G</span> CONTINUE WITH GOOGLE
-</button>
-<button onClick={()=>{setMode("phone");setError("")}} style={ghostBtn}>
-📱 CONTINUE WITH PHONE
-</button>
+<button onClick={handleGoogle} disabled={loading} className="gbtn" style={ghostBtn}><span style={{marginRight:8}}>G</span> CONTINUE WITH GOOGLE</button>
+<button onClick={()=>{setMode("phone");setError("")}} style={ghostBtn}>📱 CONTINUE WITH PHONE</button>
 </div>
 </>
 )}
-
-{/* Phone OTP */}
 {mode==="phone"&&!otpSent&&(
 <>
-<p style={{fontSize:11,color:"rgba(0,255,159,0.4)",fontFamily:"monospace",marginBottom:12,letterSpacing:1}}>
-Enter number with country code (e.g. +91XXXXXXXXXX)
-</p>
-<input type="tel" placeholder="+91 98765 43210" value={phone}
-onChange={e=>setPhone(e.target.value)}
-onKeyDown={e=>e.key==="Enter"&&handleSendOTP()}
-style={inputStyle}/>
-<button onClick={handleSendOTP} disabled={loading} className="scanbtn"
-style={{...btnStyle,animation:loading?"none":"pulseNeon 2s ease-in-out infinite",opacity:loading?.6:1}}>
+<p style={{fontSize:11,color:"rgba(0,255,159,0.4)",fontFamily:"monospace",marginBottom:12,letterSpacing:1}}>Enter number with country code (e.g. +91XXXXXXXXXX)</p>
+<input type="tel" placeholder="+91 98765 43210" value={phone} onChange={e=>setPhone(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleSendOTP()} style={inputStyle}/>
+<button onClick={handleSendOTP} disabled={loading} className="scanbtn" style={{...btnStyle,animation:loading?"none":"pulseNeon 2s ease-in-out infinite",opacity:loading?.6:1}}>
 {loading?"⟳  Sending OTP...":"📨  SEND OTP"}
 </button>
 </>
 )}
-
 {mode==="phone"&&otpSent&&(
 <>
-<p style={{fontSize:11,color:"rgba(0,255,159,0.5)",fontFamily:"monospace",marginBottom:12,letterSpacing:1}}>
-OTP sent to {phone}
-</p>
-<input type="text" placeholder="Enter 6-digit OTP" value={otp}
-onChange={e=>setOtp(e.target.value)}
-onKeyDown={e=>e.key==="Enter"&&handleVerifyOTP()}
-style={inputStyle} maxLength={6}/>
-<button onClick={handleVerifyOTP} disabled={loading} className="scanbtn"
-style={{...btnStyle,animation:loading?"none":"pulseNeon 2s ease-in-out infinite",opacity:loading?.6:1}}>
+<p style={{fontSize:11,color:"rgba(0,255,159,0.5)",fontFamily:"monospace",marginBottom:12,letterSpacing:1}}>OTP sent to {phone}</p>
+<input type="text" placeholder="Enter 6-digit OTP" value={otp} onChange={e=>setOtp(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleVerifyOTP()} style={inputStyle} maxLength={6}/>
+<button onClick={handleVerifyOTP} disabled={loading} className="scanbtn" style={{...btnStyle,animation:loading?"none":"pulseNeon 2s ease-in-out infinite",opacity:loading?.6:1}}>
 {loading?"⟳  Verifying...":"✅  VERIFY OTP"}
 </button>
-<button onClick={()=>{setOtpSent(false);setOtp("")}} style={{...ghostBtn,marginTop:8}}>
-↩ RESEND OTP
-</button>
+<button onClick={()=>{setOtpSent(false);setOtp("")}} style={{...ghostBtn,marginTop:8}}>↩ RESEND OTP</button>
 </>
 )}
-
 {error&&(
-<div style={{marginTop:16,border:"1px solid #ff444433",borderLeft:"3px solid #ff4444",borderRadius:4,padding:"10px 14px",fontSize:12,color:"#ff4444",fontFamily:"monospace",animation:"slideIn .3s ease"}}>
-{error}
-</div>
+<div style={{marginTop:16,border:"1px solid #ff444433",borderLeft:"3px solid #ff4444",borderRadius:4,padding:"10px 14px",fontSize:12,color:"#ff4444",fontFamily:"monospace",animation:"slideIn .3s ease"}}>{error}</div>
 )}
 </div>
-
-<p style={{textAlign:"center",marginTop:16,fontSize:10,color:"rgba(0,255,159,0.2)",fontFamily:"monospace",letterSpacing:1}}>
-SECURED BY FIREBASE AUTH · END-TO-END ENCRYPTED
-</p>
+<p style={{textAlign:"center",marginTop:16,fontSize:10,color:"rgba(0,255,159,0.2)",fontFamily:"monospace",letterSpacing:1}}>SECURED BY FIREBASE AUTH · END-TO-END ENCRYPTED</p>
 </div>
 </div>
 )}
@@ -426,7 +443,7 @@ SECURED BY FIREBASE AUTH · END-TO-END ENCRYPTED
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
 
 export default function App(){
-const[user,setUser]=useState(undefined) // undefined=loading, null=logged out
+const[user,setUser]=useState(undefined)
 const[url,setUrl]=useState("")
 const[scanning,setScanning]=useState(false)
 const[result,setResult]=useState(null)
@@ -438,7 +455,6 @@ const pendingResult=useRef(null)
 const terminalDone=useRef(false)
 const backendDone=useRef(false)
 
-// Listen to Firebase auth state
 useEffect(()=>{
 const unsub=auth.onAuthStateChanged(u=>setUser(u||null))
 return unsub
@@ -446,9 +462,7 @@ return unsub
 
 const handleLogout=async()=>{
 await signOut(auth)
-setResult(null)
-setUrl("")
-setHistory([])
+setResult(null);setUrl("");setHistory([])
 }
 
 const showResult=useCallback((res,hist)=>{
@@ -459,9 +473,7 @@ const newScan={url:res.url||"unknown",score:res.score,verdict:res.verdict,timest
 const updated=[newScan,...hist].slice(0,20)
 setHistory(updated)
 try{localStorage.setItem("scanHistory",JSON.stringify(updated))}catch(e){console.log(e)}
-if(res.verdict==="Dangerous"||res.verdict==="Suspicious"){
-sendNotification(res.verdict,res.score,res.url||url)
-}
+if(res.verdict==="Dangerous"||res.verdict==="Suspicious"){sendNotification(res.verdict,res.score,res.url||url)}
 },[url])
 
 const handleScan=useCallback(async()=>{
@@ -473,16 +485,10 @@ const hasProtocol=trimmed.startsWith("http://")||trimmed.startsWith("https://")
 const hasDot=trimmed.includes(".")
 if(isJustNumbers||isJustWords||(!hasProtocol&&!hasDot)){
 setError("⚠ Invalid input! Please enter a valid URL like https://example.com")
-setResult(null)
-return
+setResult(null);return
 }
-setResult(null)
-setError("")
-setLogsComplete(false)
-setScanning(true)
-pendingResult.current=null
-terminalDone.current=false
-backendDone.current=false
+setResult(null);setError("");setLogsComplete(false);setScanning(true)
+pendingResult.current=null;terminalDone.current=false;backendDone.current=false
 const currentHistory=[...history]
 try{
 const res=await axios.post("https://phishing-predictor.up.railway.app/analyze",{url},{timeout:90000})
@@ -498,7 +504,6 @@ const currentHistory=[...history]
 if(backendDone.current)showResult(pendingResult.current,currentHistory)
 },[history,showResult])
 
-// Loading state while Firebase checks auth
 if(user===undefined){
 return(
 <>
@@ -514,7 +519,6 @@ return(
 )
 }
 
-// Not logged in → show auth screen
 if(!user){
 return(
 <>
@@ -536,15 +540,14 @@ input:focus{outline:none;border-color:#00ff9f!important;box-shadow:0 0 10px rgba
 .gbtn:hover{background:rgba(0,255,159,0.08)!important;border-color:#00ff9f88!important;color:#00ff9f!important}
 `}</style>
 <div style={{position:"relative",minHeight:"100vh",overflow:"hidden",background:"#0a0a0a"}}>
-        <MatrixRain/>
-        <div className="scanline" style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:1}}/>
-        <AuthScreen onLogin={u=>setUser(u)}/>
-      </div>
-    </>
-  )
+<MatrixRain/>
+<div className="scanline" style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:1}}/>
+<AuthScreen onLogin={u=>setUser(u)}/>
+</div>
+</>
+)
 }
 
-// Logged in → main detector
 return(
 <>
 <style>{`
@@ -570,16 +573,12 @@ input:focus{outline:none;border-color:#00ff9f!important;box-shadow:0 0 10px rgba
 <MatrixRain/>
 <div className="scanline" style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:1}}/>
 
-{/* User bar top-right */}
 <div style={{position:"fixed",top:16,right:20,zIndex:20,display:"flex",alignItems:"center",gap:10,padding:"6px 14px",background:"rgba(0,0,0,0.6)",border:"1px solid #1a3a2a",borderRadius:20,backdropFilter:"blur(8px)"}}>
 {user.photoURL&&<img src={user.photoURL} style={{width:22,height:22,borderRadius:"50%",border:"1px solid #00ff9f44"}} alt="avatar"/>}
 <span style={{fontSize:11,color:"rgba(0,255,159,0.7)",fontFamily:"monospace",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
 {user.displayName||user.email||user.phoneNumber||"USER"}
 </span>
-<button onClick={handleLogout}
-style={{background:"transparent",border:"1px solid #ff444433",borderRadius:4,color:"#ff4444",fontSize:10,padding:"2px 8px",cursor:"pointer",fontFamily:"monospace",letterSpacing:1}}>
-LOGOUT
-</button>
+<button onClick={handleLogout} style={{background:"transparent",border:"1px solid #ff444433",borderRadius:4,color:"#ff4444",fontSize:10,padding:"2px 8px",cursor:"pointer",fontFamily:"monospace",letterSpacing:1}}>LOGOUT</button>
 </div>
 
 <div style={{position:"relative",zIndex:10,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"48px 24px",gap:32}}>
@@ -617,6 +616,8 @@ style={{width:"100%",padding:16,borderRadius:8,border:"none",fontFamily:"monospa
 {scanning?"⟳  Scanning...":"⚡  Scan Now"}
 </button>
 </div>
+
+<QRScanner onURLFound={u=>{setUrl(u);setResult(null);setError("")}}/>
 
 {history.length>0&&<div style={{animation:"slideIn .3s ease"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:"rgba(0,255,159,0.04)",border:"1px solid #00ff9f33",borderRadius:showHistory?"8px 8px 0 0":"8px",cursor:"pointer"}} onClick={()=>setShowHistory(s=>!s)}>
