@@ -260,8 +260,14 @@ setLoading(false)
 }
 
 const setupRecaptcha=()=>{
-if(!window.recaptchaVerifier){
+try{
+if(window.recaptchaVerifier){
+window.recaptchaVerifier.clear()
+window.recaptchaVerifier=null
+}
 window.recaptchaVerifier=new RecaptchaVerifier(auth,"recaptcha-container",{size:"invisible"})
+}catch(e){
+window.recaptchaVerifier=null
 }
 }
 
@@ -274,8 +280,8 @@ const confirmation=await signInWithPhoneNumber(auth,phone,window.recaptchaVerifi
 setConfirmObj(confirmation)
 setOtpSent(true)
 }catch(e){
-setError("⚠ "+e.message.replace("Firebase: ",""))
-if(window.recaptchaVerifier){window.recaptchaVerifier.clear();window.recaptchaVerifier=null}
+setError("⚠ "+e.message.replace("Firebase: ","").replace(/\(auth.*\)/,"").trim())
+try{if(window.recaptchaVerifier){window.recaptchaVerifier.clear();window.recaptchaVerifier=null}}catch(_){}
 }
 setLoading(false)
 }
