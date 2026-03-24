@@ -436,193 +436,6 @@ style={{border:`2px dashed ${dragging?"#00ff9f":"#1a3a2a"}`,borderRadius:8,paddi
 </div>
 )}
 
-// ─── THREAT MAP ──────────────────────────────────────────────────────────────
-
-// Known safe domains → approximate HQ coords for map display
-const KNOWN_COORDS={
-"google.com":{lat:37.4,lon:-122.0,city:"Mountain View",country:"US",isp:"Google LLC"},
-"google.co.in":{lat:28.6,lon:77.2,city:"New Delhi",country:"India",isp:"Google LLC"},
-"youtube.com":{lat:37.4,lon:-122.0,city:"Mountain View",country:"US",isp:"Google LLC"},
-"facebook.com":{lat:37.5,lon:-122.2,city:"Menlo Park",country:"US",isp:"Meta"},
-"amazon.com":{lat:47.6,lon:-122.3,city:"Seattle",country:"US",isp:"Amazon AWS"},
-"microsoft.com":{lat:47.6,lon:-122.1,city:"Redmond",country:"US",isp:"Microsoft"},
-"apple.com":{lat:37.3,lon:-122.0,city:"Cupertino",country:"US",isp:"Apple Inc"},
-"github.com":{lat:37.8,lon:-122.3,city:"San Francisco",country:"US",isp:"GitHub"},
-"netflix.com":{lat:37.3,lon:-121.9,city:"Los Gatos",country:"US",isp:"Netflix"},
-"paypal.com":{lat:37.4,lon:-122.1,city:"San Jose",country:"US",isp:"PayPal"},
-"twitter.com":{lat:37.8,lon:-122.4,city:"San Francisco",country:"US",isp:"Twitter"},
-"x.com":{lat:37.8,lon:-122.4,city:"San Francisco",country:"US",isp:"X Corp"},
-"instagram.com":{lat:37.5,lon:-122.2,city:"Menlo Park",country:"US",isp:"Meta"},
-"linkedin.com":{lat:37.4,lon:-122.0,city:"Sunnyvale",country:"US",isp:"Microsoft"},
-"reddit.com":{lat:37.8,lon:-122.4,city:"San Francisco",country:"US",isp:"Reddit Inc"},
-"wikipedia.org":{lat:37.8,lon:-122.4,city:"San Francisco",country:"US",isp:"Wikimedia"},
-"openai.com":{lat:37.8,lon:-122.4,city:"San Francisco",country:"US",isp:"OpenAI"},
-"anthropic.com":{lat:37.8,lon:-122.4,city:"San Francisco",country:"US",isp:"Anthropic"},
-"vercel.app":{lat:37.8,lon:-122.4,city:"San Francisco",country:"US",isp:"Vercel"},
-"railway.app":{lat:37.8,lon:-122.4,city:"San Francisco",country:"US",isp:"Railway"},
-}
-
-const getThreatLocations=async(history)=>{
-const locations=[]
-for(const h of history.slice(0,20)){
-try{
-let rawDomain=h.url.replace(/https?:\/\//,"").split("/")[0].split("?")[0].toLowerCase()
-// strip port if any
-rawDomain=rawDomain.split(":")[0]
-
-// Check known coords first (works offline / for common domains)
-const known=KNOWN_COORDS[rawDomain]||KNOWN_COORDS[rawDomain.replace(/^www\./,"")]
-if(known){
-locations.push({
-lat:known.lat,lon:known.lon,
-country:known.country,city:known.city,isp:known.isp,
-url:h.url,verdict:h.verdict,score:h.score,
-timestamp:h.timestamp
-})
-continue
-}
-
-// Try ip-api for unknown domains
-const res=await fetch(`https://ip-api.com/json/${rawDomain}?fields=status,lat,lon,country,city,isp,query`)
-const data=await res.json()
-if(data.status==="success"&&data.lat&&data.lon){
-locations.push({
-lat:data.lat,lon:data.lon,
-country:data.country,city:data.city,isp:data.isp,
-url:h.url,verdict:h.verdict,score:h.score,
-timestamp:h.timestamp
-})
-}else{
-// ip-api failed (fake domain) — place marker at a slightly randomized world center
-// so user can still see the threat exists, labeled as "Unknown origin"
-const randLat=(Math.random()-0.5)*60
-const randLon=(Math.random()-0.5)*300
-locations.push({
-lat:randLat,lon:randLon,
-country:"Unknown",city:"Unresolvable Domain",isp:"Hidden/Fake",
-url:h.url,verdict:h.verdict,score:h.score,
-timestamp:h.timestamp
-})
-}
-}catch(e){
-// Network error fallback
-const randLat=(Math.random()-0.5)*60
-const randLon=(Math.random()-0.5)*300
-locations.push({
-lat:randLat,lon:randLon,
-country:"Unknown",city:"Lookup Failed",isp:"N/A",
-url:h.url,verdict:h.verdict,score:h.score,
-timestamp:h.timestamp
-})
-}
-}
-return locations
-}
-
-const ThreatMap=({history})=>{
-const mapRef=useRef(null)
-const mapInstanceRef=useRef(null)
-const[loading,setLoading]=useState(false)
-const[count,setCount]=useState(0)
-
-useEffect(()=>{
-if(!window.L||!mapRef.current)return
-if(mapInstanceRef.current){mapInstanceRef.current.remove();mapInstanceRef.current=null}
-
-const map=window.L.map(mapRef.current,{
-center:[20,0],zoom:2,
-zoomControl:true,
-attributionControl:false
-})
-mapInstanceRef.current=map
-
-window.L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{
-maxZoom:19,subdomains:"abcd"
-}).addTo(map)
-
-if(history.length===0){setLoading(false);return}
-
-setLoading(true)
-getThreatLocations(history).then(locations=>{
-setCount(locations.length)
-locations.forEach(loc=>{
-const color=loc.verdict==="Dangerous"?"#ff4444":loc.verdict==="Suspicious"||loc.verdict==="Low Risk"?"#ffcc00":"#00ff9f"
-const marker=window.L.circleMarker([loc.lat,loc.lon],{
-radius:loc.verdict==="Dangerous"?10:7,
-fillColor:color,color:color,
-weight:2,opacity:0.9,fillOpacity:0.5
-})
-const verdictIcon=loc.verdict==="Dangerous"?"🚫":loc.verdict==="Suspicious"||loc.verdict==="Low Risk"?"⚠️":"🛡️"
-const isFake=loc.city==="Unresolvable Domain"||loc.city==="Lookup Failed"
-const locationLine=isFake?"⚠ Fake domain — position approximate":`📍 ${loc.city||""} ${loc.country||""}`
-marker.bindPopup(`
-<div style="font-family:monospace;font-size:12px;background:#0a0a0a;color:#00ff9f;padding:10px;border-radius:6px;border:1px solid ${color}44;min-width:210px">
-<div style="color:${color};font-weight:700;margin-bottom:6px;font-size:13px">${verdictIcon} ${loc.verdict.toUpperCase()}</div>
-<div style="color:rgba(0,255,159,0.7);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;font-size:11px">${loc.url}</div>
-<div style="color:rgba(0,255,159,0.5);font-size:11px;margin-bottom:2px">${locationLine}</div>
-<div style="color:rgba(0,255,159,0.5);font-size:11px;margin-bottom:4px">🏢 ${loc.isp||"Unknown ISP"}</div>
-<div style="color:${color};font-size:12px;font-weight:700">Risk Score: ${loc.score}/100</div>
-<div style="color:rgba(0,255,159,0.3);font-size:10px;margin-top:4px">${loc.timestamp}</div>
-</div>
-`,{className:"custom-popup"})
-marker.addTo(map)
-})
-setLoading(false)
-})
-
-return()=>{if(mapInstanceRef.current){mapInstanceRef.current.remove();mapInstanceRef.current=null}}
-},[history])
-
-const dangerous=history.filter(h=>h.verdict==="Dangerous").length
-const suspicious=history.filter(h=>h.verdict==="Suspicious"||h.verdict==="Low Risk").length
-
-return(
-<div style={{display:"flex",flexDirection:"column",gap:16}}>
-<style>{`.custom-popup .leaflet-popup-content-wrapper{background:#0a0a0a!important;border:1px solid #00ff9f33!important;box-shadow:0 0 20px rgba(0,255,159,0.15)!important;padding:0!important;border-radius:8px!important}.custom-popup .leaflet-popup-content{margin:0!important}.custom-popup .leaflet-popup-tip{background:#0a0a0a!important}.leaflet-container{background:#050a05!important}`}</style>
-
-<div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-{[
-{label:"TOTAL SCANS",val:history.length,color:"#00ff9f"},
-{label:"DANGEROUS",val:dangerous,color:"#ff4444"},
-{label:"SUSPICIOUS",val:suspicious,color:"#ffcc00"},
-{label:"SAFE",val:history.length-dangerous-suspicious,color:"#00ff9f"},
-].map(s=>(
-<div key={s.label} style={{flex:1,minWidth:100,padding:"12px 16px",background:`${s.color}08`,border:`1px solid ${s.color}33`,borderRadius:8,textAlign:"center"}}>
-<div style={{fontSize:22,fontWeight:700,color:s.color,fontFamily:"monospace"}}>{s.val}</div>
-<div style={{fontSize:9,color:"rgba(0,255,159,0.4)",letterSpacing:2,marginTop:4}}>{s.label}</div>
-</div>
-))}
-</div>
-
-<div style={{position:"relative",borderRadius:8,overflow:"hidden",border:"1px solid #00ff9f22"}}>
-{loading&&<div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",zIndex:1000,background:"rgba(0,0,0,0.8)",padding:"12px 20px",borderRadius:8,border:"1px solid #00ff9f33",fontFamily:"monospace",fontSize:12,color:"#00ff9f",display:"flex",alignItems:"center",gap:8}}>
-<div style={{width:8,height:8,borderRadius:"50%",background:"#00ff9f",animation:"pulse 1s infinite"}}/>
-GEOLOCATING THREATS...
-</div>}
-<div ref={mapRef} style={{height:380,width:"100%",background:"#050a05"}}/>
-</div>
-
-<div style={{display:"flex",gap:16,justifyContent:"center",flexWrap:"wrap"}}>
-{[["#ff4444","🚫 Dangerous"],["#ffcc00","⚠️ Suspicious"],["#00ff9f","🛡️ Safe"]].map(([color,label])=>(
-<div key={label} style={{display:"flex",alignItems:"center",gap:6,fontSize:11,color:"rgba(0,255,159,0.6)",fontFamily:"monospace"}}>
-<div style={{width:10,height:10,borderRadius:"50%",background:color,opacity:0.8}}/>
-{label}
-</div>
-))}
-</div>
-
-{history.length===0&&<div style={{textAlign:"center",padding:"32px",color:"rgba(0,255,159,0.3)",fontFamily:"monospace",fontSize:13,border:"1px solid #00ff9f11",borderRadius:8}}>
-No scans yet — scan some URLs to see threat locations on the map!
-</div>}
-
-<div style={{fontSize:10,color:"rgba(0,255,159,0.2)",fontFamily:"monospace",textAlign:"center",letterSpacing:1}}>
-Geolocation via ip-api.com · Click markers for details · {count} locations mapped
-</div>
-</div>
-)}
-
-// ─── AUTH SCREEN ─────────────────────────────────────────────────────────────
-
 const AuthScreen=({onLogin})=>{
 const[mode,setMode]=useState("login")
 const[email,setEmail]=useState("")
@@ -759,8 +572,6 @@ style={{flex:1,padding:"10px 0",background:mode===m?"rgba(0,255,159,0.1)":"trans
 </div>
 )}
 
-// ─── MAIN APP ────────────────────────────────────────────────────────────────
-
 export default function App(){
 const[user,setUser]=useState(undefined)
 const[tab,setTab]=useState("url")
@@ -775,23 +586,6 @@ const[emailHistory,setEmailHistory]=useState(()=>{try{return JSON.parse(localSto
 const pendingResult=useRef(null)
 const terminalDone=useRef(false)
 const backendDone=useRef(false)
-
-// Load Leaflet CSS+JS dynamically when map tab is first needed
-useEffect(()=>{
-if(!document.getElementById("leaflet-css")){
-const link=document.createElement("link")
-link.id="leaflet-css"
-link.rel="stylesheet"
-link.href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-document.head.appendChild(link)
-}
-if(!document.getElementById("leaflet-js")){
-const script=document.createElement("script")
-script.id="leaflet-js"
-script.src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-document.head.appendChild(script)
-}
-},[])
 
 useEffect(()=>{
 const unsub=auth.onAuthStateChanged(u=>setUser(u||null))
@@ -910,7 +704,6 @@ input:focus,textarea:focus{outline:none;border-color:#00ff9f!important;box-shado
 <div style={{position:"relative",minHeight:"100vh",overflow:"hidden",background:"#0a0a0a"}}>
 <MatrixRain/>
 <div className="scanline" style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:1}}/>
-
 <div style={{position:"fixed",top:16,right:20,zIndex:20,display:"flex",alignItems:"center",gap:10,padding:"6px 14px",background:"rgba(0,0,0,0.6)",border:"1px solid #1a3a2a",borderRadius:20,backdropFilter:"blur(8px)"}}>
 {user.photoURL&&<img src={user.photoURL} style={{width:22,height:22,borderRadius:"50%",border:"1px solid #00ff9f44"}} alt="avatar"/>}
 <span style={{fontSize:11,color:"rgba(0,255,159,0.7)",fontFamily:"monospace",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
@@ -918,13 +711,11 @@ input:focus,textarea:focus{outline:none;border-color:#00ff9f!important;box-shado
 </span>
 <button onClick={handleLogout} style={{background:"transparent",border:"1px solid #ff444433",borderRadius:4,color:"#ff4444",fontSize:10,padding:"2px 8px",cursor:"pointer",fontFamily:"monospace",letterSpacing:1}}>LOGOUT</button>
 </div>
-
 <div style={{position:"relative",zIndex:10,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"48px 24px",gap:32}}>
 <div className="mobile-hacker" style={{width:"100%",maxWidth:320}}><HackerScene/></div>
 <div style={{display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:64,width:"100%",maxWidth:1200}}>
-<div style={{flex:1,maxWidth:tab==="map"?900:560,width:"100%"}}>
+<div style={{flex:1,maxWidth:560,width:"100%"}}>
 <div style={{display:"flex",flexDirection:"column",gap:24}}>
-
 <div style={{animation:"slideIn .6s ease"}}>
 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
 <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
@@ -938,16 +729,14 @@ AI Phishing Detector
 <p style={{color:"rgba(0,255,159,.4)",fontSize:14,marginLeft:44}}>Analyze URLs and emails for threats in real-time</p>
 <NotificationButton/>
 </div>
-
 <div style={{display:"flex",borderBottom:"1px solid #00ff9f22",gap:0}}>
-{[["url","🔗 URL Scanner"],["email","📧 Email Checker"],["map","🗺️ Threat Map"]].map(([key,label])=>(
+{[["url","🔗 URL Scanner"],["email","📧 Email Checker"]].map(([key,label])=>(
 <button key={key} onClick={()=>setTab(key)}
 style={{padding:"10px 20px",background:"transparent",border:"none",borderBottom:`2px solid ${tab===key?"#00ff9f":"transparent"}`,color:tab===key?"#00ff9f":"rgba(0,255,159,0.4)",fontFamily:"monospace",fontSize:11,letterSpacing:2,cursor:"pointer",transition:"all .2s"}}>
 {label}
 </button>
 ))}
 </div>
-
 {tab==="url"&&<>
 <div style={{animation:"slideIn .5s ease .2s both"}}>
 <div style={{position:"relative",marginBottom:12}}>
@@ -964,9 +753,7 @@ style={{width:"100%",padding:16,borderRadius:8,border:"none",fontFamily:"monospa
 {scanning?"⟳  Scanning...":"⚡  Scan Now"}
 </button>
 </div>
-
 <QRScanner onURLFound={u=>{setUrl(u);setResult(null);setError("")}}/>
-
 {history.length>0&&<div style={{animation:"slideIn .3s ease"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:"rgba(0,255,159,0.04)",border:"1px solid #00ff9f33",borderRadius:showHistory?"8px 8px 0 0":"8px",cursor:"pointer"}} onClick={()=>setShowHistory(s=>!s)}>
 <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -995,22 +782,16 @@ style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBott
 ))}
 </div>}
 </div>}
-
 {scanning&&<TerminalLogs onComplete={handleLogsComplete}/>}
 {error&&<div style={{border:"1px solid #ff444433",borderLeft:"3px solid #ff4444",borderRadius:4,padding:"12px 16px",fontSize:12,color:"#ff4444",fontFamily:"monospace",letterSpacing:1}}>{error}</div>}
 {result&&!scanning&&<ScanResults result={result}/>}
 </>}
-
 {tab==="email"&&<EmailChecker emailHistory={emailHistory} setEmailHistory={setEmailHistory}/>}
-
-{tab==="map"&&<ThreatMap history={history}/>}
-
 </div>
 </div>
-{tab!=="map"&&<div className="desktop-hacker" style={{flex:1,maxWidth:480,display:"flex",alignItems:"center",justifyContent:"center"}}><HackerScene/></div>}
+<div className="desktop-hacker" style={{flex:1,maxWidth:480,display:"flex",alignItems:"center",justifyContent:"center"}}><HackerScene/></div>
 </div>
 </div>
 </div>
 </>
-)
-}
+)}
