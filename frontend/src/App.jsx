@@ -438,22 +438,83 @@ style={{border:`2px dashed ${dragging?"#00ff9f":"#1a3a2a"}`,borderRadius:8,paddi
 
 // ─── THREAT MAP ──────────────────────────────────────────────────────────────
 
+// Known safe domains → approximate HQ coords for map display
+const KNOWN_COORDS={
+"google.com":{lat:37.4,lon:-122.0,city:"Mountain View",country:"US",isp:"Google LLC"},
+"google.co.in":{lat:28.6,lon:77.2,city:"New Delhi",country:"India",isp:"Google LLC"},
+"youtube.com":{lat:37.4,lon:-122.0,city:"Mountain View",country:"US",isp:"Google LLC"},
+"facebook.com":{lat:37.5,lon:-122.2,city:"Menlo Park",country:"US",isp:"Meta"},
+"amazon.com":{lat:47.6,lon:-122.3,city:"Seattle",country:"US",isp:"Amazon AWS"},
+"microsoft.com":{lat:47.6,lon:-122.1,city:"Redmond",country:"US",isp:"Microsoft"},
+"apple.com":{lat:37.3,lon:-122.0,city:"Cupertino",country:"US",isp:"Apple Inc"},
+"github.com":{lat:37.8,lon:-122.3,city:"San Francisco",country:"US",isp:"GitHub"},
+"netflix.com":{lat:37.3,lon:-121.9,city:"Los Gatos",country:"US",isp:"Netflix"},
+"paypal.com":{lat:37.4,lon:-122.1,city:"San Jose",country:"US",isp:"PayPal"},
+"twitter.com":{lat:37.8,lon:-122.4,city:"San Francisco",country:"US",isp:"Twitter"},
+"x.com":{lat:37.8,lon:-122.4,city:"San Francisco",country:"US",isp:"X Corp"},
+"instagram.com":{lat:37.5,lon:-122.2,city:"Menlo Park",country:"US",isp:"Meta"},
+"linkedin.com":{lat:37.4,lon:-122.0,city:"Sunnyvale",country:"US",isp:"Microsoft"},
+"reddit.com":{lat:37.8,lon:-122.4,city:"San Francisco",country:"US",isp:"Reddit Inc"},
+"wikipedia.org":{lat:37.8,lon:-122.4,city:"San Francisco",country:"US",isp:"Wikimedia"},
+"openai.com":{lat:37.8,lon:-122.4,city:"San Francisco",country:"US",isp:"OpenAI"},
+"anthropic.com":{lat:37.8,lon:-122.4,city:"San Francisco",country:"US",isp:"Anthropic"},
+"vercel.app":{lat:37.8,lon:-122.4,city:"San Francisco",country:"US",isp:"Vercel"},
+"railway.app":{lat:37.8,lon:-122.4,city:"San Francisco",country:"US",isp:"Railway"},
+}
+
 const getThreatLocations=async(history)=>{
 const locations=[]
 for(const h of history.slice(0,20)){
 try{
-let domain=h.url.replace(/https?:\/\//,"").split("/")[0].split("?")[0]
-const res=await fetch(`https://ip-api.com/json/${domain}?fields=status,lat,lon,country,city,isp`)
+let rawDomain=h.url.replace(/https?:\/\//,"").split("/")[0].split("?")[0].toLowerCase()
+// strip port if any
+rawDomain=rawDomain.split(":")[0]
+
+// Check known coords first (works offline / for common domains)
+const known=KNOWN_COORDS[rawDomain]||KNOWN_COORDS[rawDomain.replace(/^www\./,"")]
+if(known){
+locations.push({
+lat:known.lat,lon:known.lon,
+country:known.country,city:known.city,isp:known.isp,
+url:h.url,verdict:h.verdict,score:h.score,
+timestamp:h.timestamp
+})
+continue
+}
+
+// Try ip-api for unknown domains
+const res=await fetch(`https://ip-api.com/json/${rawDomain}?fields=status,lat,lon,country,city,isp,query`)
 const data=await res.json()
-if(data.status==="success"){
+if(data.status==="success"&&data.lat&&data.lon){
 locations.push({
 lat:data.lat,lon:data.lon,
 country:data.country,city:data.city,isp:data.isp,
 url:h.url,verdict:h.verdict,score:h.score,
 timestamp:h.timestamp
 })
+}else{
+// ip-api failed (fake domain) — place marker at a slightly randomized world center
+// so user can still see the threat exists, labeled as "Unknown origin"
+const randLat=(Math.random()-0.5)*60
+const randLon=(Math.random()-0.5)*300
+locations.push({
+lat:randLat,lon:randLon,
+country:"Unknown",city:"Unresolvable Domain",isp:"Hidden/Fake",
+url:h.url,verdict:h.verdict,score:h.score,
+timestamp:h.timestamp
+})
 }
-}catch(e){}
+}catch(e){
+// Network error fallback
+const randLat=(Math.random()-0.5)*60
+const randLon=(Math.random()-0.5)*300
+locations.push({
+lat:randLat,lon:randLon,
+country:"Unknown",city:"Lookup Failed",isp:"N/A",
+url:h.url,verdict:h.verdict,score:h.score,
+timestamp:h.timestamp
+})
+}
 }
 return locations
 }
@@ -491,14 +552,17 @@ radius:loc.verdict==="Dangerous"?10:7,
 fillColor:color,color:color,
 weight:2,opacity:0.9,fillOpacity:0.5
 })
+const verdictIcon=loc.verdict==="Dangerous"?"🚫":loc.verdict==="Suspicious"||loc.verdict==="Low Risk"?"⚠️":"🛡️"
+const isFake=loc.city==="Unresolvable Domain"||loc.city==="Lookup Failed"
+const locationLine=isFake?"⚠ Fake domain — position approximate":`📍 ${loc.city||""} ${loc.country||""}`
 marker.bindPopup(`
-<div style="font-family:monospace;font-size:12px;background:#0a0a0a;color:#00ff9f;padding:10px;border-radius:6px;border:1px solid ${color}44;min-width:200px">
-<div style="color:${color};font-weight:700;margin-bottom:6px;font-size:13px">${loc.verdict==="Dangerous"?"🚫":"⚠️"} ${loc.verdict.toUpperCase()}</div>
-<div style="color:rgba(0,255,159,0.7);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px">${loc.url}</div>
-<div style="color:rgba(0,255,159,0.5);font-size:11px">📍 ${loc.city||""} ${loc.country||""}</div>
-<div style="color:rgba(0,255,159,0.5);font-size:11px">🏢 ${loc.isp||""}</div>
-<div style="color:${color};font-size:11px;margin-top:4px">Risk: ${loc.score}/100</div>
-<div style="color:rgba(0,255,159,0.3);font-size:10px">${loc.timestamp}</div>
+<div style="font-family:monospace;font-size:12px;background:#0a0a0a;color:#00ff9f;padding:10px;border-radius:6px;border:1px solid ${color}44;min-width:210px">
+<div style="color:${color};font-weight:700;margin-bottom:6px;font-size:13px">${verdictIcon} ${loc.verdict.toUpperCase()}</div>
+<div style="color:rgba(0,255,159,0.7);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;font-size:11px">${loc.url}</div>
+<div style="color:rgba(0,255,159,0.5);font-size:11px;margin-bottom:2px">${locationLine}</div>
+<div style="color:rgba(0,255,159,0.5);font-size:11px;margin-bottom:4px">🏢 ${loc.isp||"Unknown ISP"}</div>
+<div style="color:${color};font-size:12px;font-weight:700">Risk Score: ${loc.score}/100</div>
+<div style="color:rgba(0,255,159,0.3);font-size:10px;margin-top:4px">${loc.timestamp}</div>
 </div>
 `,{className:"custom-popup"})
 marker.addTo(map)
