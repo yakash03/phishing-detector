@@ -118,25 +118,101 @@ const verdict=result.verdict==="Dangerous"?"dangerous":result.verdict==="Suspici
 const cfg=verdictConfig[verdict]
 const flags=result.flags||[]
 const ai=result.ai_analysis
+const[domainInfo,setDomainInfo]=useState(null)
+const[loadingInfo,setLoadingInfo]=useState(true)
+
+useEffect(()=>{
+const fetchDomainInfo=async()=>{
+try{
+const urlObj=new URL(result.url||"")
+const domain=urlObj.hostname.replace("www.","")
+const res=await fetch(`https://ipwhois.app/json/${domain}`)
+const data=await res.json()
+setDomainInfo(data)
+}catch(e){}
+setLoadingInfo(false)
+}
+fetchDomainInfo()
+},[result.url])
+
+const Row=({label,value,color})=>(
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"10px 0",borderBottom:"1px solid #00ff9f0a",gap:16}}>
+<div style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.6)"}}>{label}</div>
+<div style={{fontSize:12,fontFamily:"monospace",color:color||"rgba(0,255,159,0.9)",textAlign:"right",maxWidth:"60%",wordBreak:"break-all"}}>{value||"—"}</div>
+</div>
+)
+
 return(
 <div style={{display:"flex",flexDirection:"column",gap:16}}>
+
 <div style={{border:`1px solid ${cfg.color}33`,borderRadius:8,padding:24,background:`${cfg.color}0a`,boxShadow:`0 0 15px ${cfg.glow}`,animation:"slideIn .5s ease"}}>
 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
 <span style={{fontSize:28}}>{cfg.icon}</span>
 <span style={{fontFamily:"monospace",fontSize:24,fontWeight:700,letterSpacing:"0.1em",color:cfg.color,textShadow:`0 0 10px ${cfg.color}`}}>{result.verdict.toUpperCase()}</span>
 <span style={{marginLeft:"auto",fontSize:28,fontWeight:700,color:cfg.color}}>{result.score}<span style={{fontSize:14,opacity:.5}}>/100</span></span>
 </div>
-<div style={{marginBottom:16}}>
+<div style={{marginBottom:6}}>
 <div style={{width:"100%",height:12,background:"#1a1a1a",borderRadius:999,overflow:"hidden"}}>
 <div style={{height:"100%",borderRadius:999,background:cfg.color,boxShadow:`0 0 10px ${cfg.glow}`,width:`${result.score}%`,transition:"width 1.5s ease"}}/>
 </div>
 </div>
+<div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"rgba(0,255,159,0.3)",fontFamily:"monospace"}}>
+<span>0 — CLEAN</span><span>50 — MEDIUM</span><span>100 — DANGEROUS</span>
+</div>
+</div>
+
 {result.virustotal?.total_engines>0&&(
-<div style={{fontSize:11,color:"rgba(0,255,159,0.5)",fontFamily:"monospace",padding:"8px 12px",background:"rgba(0,0,0,0.3)",borderRadius:4}}>
-VIRUSTOTAL: <span style={{color:"#ff4444"}}>{result.virustotal.malicious_engines} malicious</span> · <span style={{color:"#ffcc00"}}>{result.virustotal.suspicious_engines} suspicious</span> / {result.virustotal.total_engines} engines
+<div style={{border:"1px solid #00ff9f22",borderRadius:8,padding:16,background:"rgba(0,0,0,0.3)"}}>
+<div style={{fontSize:11,color:"rgba(0,255,159,0.5)",fontFamily:"monospace",letterSpacing:2,marginBottom:10}}>🔬 VIRUSTOTAL ENGINES</div>
+<div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+<div style={{flex:1,padding:"10px 14px",background:"rgba(255,68,68,0.08)",border:"1px solid #ff444422",borderRadius:6,textAlign:"center"}}>
+<div style={{fontSize:20,fontWeight:700,color:"#ff4444",fontFamily:"monospace"}}>{result.virustotal.malicious_engines}</div>
+<div style={{fontSize:10,color:"rgba(255,68,68,0.6)",marginTop:2}}>MALICIOUS</div>
+</div>
+<div style={{flex:1,padding:"10px 14px",background:"rgba(255,204,0,0.08)",border:"1px solid #ffcc0022",borderRadius:6,textAlign:"center"}}>
+<div style={{fontSize:20,fontWeight:700,color:"#ffcc00",fontFamily:"monospace"}}>{result.virustotal.suspicious_engines}</div>
+<div style={{fontSize:10,color:"rgba(255,204,0,0.6)",marginTop:2}}>SUSPICIOUS</div>
+</div>
+<div style={{flex:1,padding:"10px 14px",background:"rgba(0,255,159,0.05)",border:"1px solid #00ff9f22",borderRadius:6,textAlign:"center"}}>
+<div style={{fontSize:20,fontWeight:700,color:"#00ff9f",fontFamily:"monospace"}}>{result.virustotal.total_engines}</div>
+<div style={{fontSize:10,color:"rgba(0,255,159,0.5)",marginTop:2}}>TOTAL ENGINES</div>
+</div>
+</div>
 </div>
 )}
+
+<div style={{border:"1px solid #00ff9f22",borderRadius:8,padding:20,background:"rgba(0,255,159,0.02)",animation:"slideIn .5s ease .1s both"}}>
+<div style={{fontSize:11,color:"rgba(0,255,159,0.5)",fontFamily:"monospace",letterSpacing:2,marginBottom:12}}>🌐 DOMAIN INTELLIGENCE</div>
+{loadingInfo?(
+<div style={{display:"flex",alignItems:"center",gap:8,padding:"12px 0",color:"rgba(0,255,159,0.4)",fontSize:12,fontFamily:"monospace"}}>
+<div style={{width:8,height:8,borderRadius:"50%",background:"#00ff9f",animation:"pulse 1s infinite"}}/>
+Fetching domain info...
 </div>
+):(
+<>
+<Row label="Overall Status" value={verdict==="safe"?"✅ Clean URL — SAFE":verdict==="suspicious"?"⚠ Potentially Suspicious":"🚫 Dangerous URL"} color={cfg.color}/>
+<Row label="Risk Score" value={`${result.score}/100 — ${result.score<30?"Low Risk":result.score<60?"Medium Risk":"High Risk"}`} color={result.score<30?"#00ff9f":result.score<60?"#ffcc00":"#ff4444"}/>
+<Row label="Verdict" value={result.verdict} color={cfg.color}/>
+<Row label="Has HTTPS" value={result.url?.startsWith("https")?"✅ Yes — SSL Secured":"❌ No — Unencrypted"} color={result.url?.startsWith("https")?"#00ff9f":"#ff4444"}/>
+<Row label="Suspicious" value={verdict==="safe"?"No Issues":"⚠ Issues Detected"} color={verdict==="safe"?"#00ff9f":"#ffcc00"}/>
+<Row label="Malware" value={result.virustotal?.malicious_engines>0?"⚠ Malware Detected":"No Malware Issues"} color={result.virustotal?.malicious_engines>0?"#ff4444":"#00ff9f"}/>
+<Row label="Phishing" value={verdict==="dangerous"?"⚠ Phishing Detected":"No Phishing Issues"} color={verdict==="dangerous"?"#ff4444":"#00ff9f"}/>
+<Row label="Spamming Domain" value={verdict==="safe"?"No SPAM Issues":"Possible SPAM"} color={verdict==="safe"?"#00ff9f":"#ffcc00"}/>
+<Row label="Free Hosted Content" value={result.url?.includes("github.io")||result.url?.includes("vercel.app")||result.url?.includes("netlify.app")?"⚠ Yes — Free Hosting":"false"} color={result.url?.includes("github.io")||result.url?.includes("vercel.app")||result.url?.includes("netlify.app")?"#ffcc00":"#00ff9f"}/>
+{domainInfo&&<>
+<Row label="Domain" value={()=>{try{return new URL(result.url||"").hostname}catch{return"Unknown"}}()}/>
+<Row label="IP Address" value={domainInfo.ip} color="#00ff9f"/>
+<Row label="Country" value={domainInfo.country||null}/>
+<Row label="Region" value={domainInfo.region||null}/>
+<Row label="City" value={domainInfo.city||null}/>
+<Row label="ISP / Organisation" value={domainInfo.org||domainInfo.isp||null}/>
+<Row label="Timezone" value={domainInfo.timezone||null}/>
+<Row label="Latitude / Longitude" value={domainInfo.latitude&&domainInfo.longitude?`${domainInfo.latitude}, ${domainInfo.longitude}`:null}/>
+</>}
+</>
+)}
+</div>
+
 {ai&&<div style={{border:"1px solid #00ff9f33",borderRadius:8,padding:20,background:"rgba(0,255,159,0.03)",animation:"slideIn .6s ease .2s both"}}>
 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
 <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#00ff9f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -153,6 +229,7 @@ VIRUSTOTAL: <span style={{color:"#ff4444"}}>{result.virustotal.malicious_engines
 <span style={{fontWeight:700,letterSpacing:1}}>RECOMMENDATION: </span>{ai.recommendation}
 </div>
 </div>}
+
 {flags.length>0&&<div style={{border:"1px solid #ffffff11",borderRadius:8,padding:16,background:"rgba(0,0,0,0.2)",animation:"slideIn .6s ease .3s both"}}>
 <p style={{fontSize:11,color:"rgba(0,255,159,0.4)",marginBottom:10,fontFamily:"monospace",letterSpacing:3}}>RULE-BASED FLAGS — {flags.length} DETECTED</p>
 <ul style={{listStyle:"none",padding:0,margin:0}}>
