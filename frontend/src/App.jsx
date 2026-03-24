@@ -200,7 +200,7 @@ Fetching domain info...
 <Row label="Spamming Domain" value={verdict==="safe"?"No SPAM Issues":"Possible SPAM"} color={verdict==="safe"?"#00ff9f":"#ffcc00"}/>
 <Row label="Free Hosted Content" value={result.url?.includes("github.io")||result.url?.includes("vercel.app")||result.url?.includes("netlify.app")?"⚠ Yes — Free Hosting":"false"} color={result.url?.includes("github.io")||result.url?.includes("vercel.app")||result.url?.includes("netlify.app")?"#ffcc00":"#00ff9f"}/>
 {domainInfo&&<>
-<Row label="Domain" value={()=>{try{return new URL(result.url||"").hostname}catch{return"Unknown"}}()}/>
+<Row label="Domain" value={(() => { try { return new URL(result.url || "").hostname } catch { return "Unknown" } })()} />
 <Row label="IP Address" value={domainInfo.ip} color="#00ff9f"/>
 <Row label="Country" value={domainInfo.country||null}/>
 <Row label="Region" value={domainInfo.region||null}/>
