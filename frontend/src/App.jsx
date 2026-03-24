@@ -204,13 +204,14 @@ const regex=/https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}
 return[...new Set(text.match(regex)||[])]
 }
 
-const EmailChecker=()=>{
+const EmailChecker=({emailHistory,setEmailHistory})=>{
 const[emailText,setEmailText]=useState("")
 const[scanning,setScanning]=useState(false)
 const[results,setResults]=useState([])
 const[error,setError]=useState("")
 const[progress,setProgress]=useState(0)
 const[summary,setSummary]=useState("")
+const[showEmailHistory,setShowEmailHistory]=useState(false)
 
 const scanEmail=async()=>{
 const urls=extractUrls(emailText)
@@ -230,9 +231,15 @@ setScanning(false)
 const dangerous=scanned.filter(r=>r.verdict==="Dangerous").length
 const suspicious=scanned.filter(r=>r.verdict==="Suspicious"||r.verdict==="Low Risk").length
 const total=scanned.length
-if(dangerous>0)setSummary(`⚠ HIGH RISK — ${dangerous}/${total} URLs are DANGEROUS. Do NOT click any links!`)
-else if(suspicious>0)setSummary(`⚡ SUSPICIOUS — ${suspicious}/${total} URLs look suspicious. Verify the sender.`)
-else setSummary(`✓ SAFE — All ${total} URLs scanned clean. No phishing detected.`)
+let summaryText=""
+if(dangerous>0)summaryText=`⚠ HIGH RISK — ${dangerous}/${total} URLs are DANGEROUS. Do NOT click any links!`
+else if(suspicious>0)summaryText=`⚡ SUSPICIOUS — ${suspicious}/${total} URLs look suspicious. Verify the sender.`
+else summaryText=`✓ SAFE — All ${total} URLs scanned clean. No phishing detected.`
+setSummary(summaryText)
+const newEntry={id:Date.now(),timestamp:new Date().toLocaleString(),totalUrls:total,dangerous,suspicious,safe:total-dangerous-suspicious,summary:summaryText}
+const updated=[newEntry,...emailHistory].slice(0,15)
+setEmailHistory(updated)
+try{localStorage.setItem("emailHistory",JSON.stringify(updated))}catch(e){}
 }
 
 const urls=extractUrls(emailText)
@@ -293,6 +300,35 @@ return(
 </div>}
 </div>
 )})}
+</div>}
+
+{emailHistory.length>0&&<div>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:"rgba(0,255,159,0.04)",border:"1px solid #00ff9f33",borderRadius:showEmailHistory?"8px 8px 0 0":"8px",cursor:"pointer"}} onClick={()=>setShowEmailHistory(s=>!s)}>
+<div style={{display:"flex",alignItems:"center",gap:8}}>
+<span style={{fontSize:10,color:"#00ff9f"}}>{showEmailHistory?"▲":"▼"}</span>
+<span style={{fontSize:11,color:"rgba(0,255,159,0.8)",fontFamily:"monospace",letterSpacing:2}}>EMAIL SCAN HISTORY — {emailHistory.length}</span>
+</div>
+<button onClick={e=>{e.stopPropagation();setEmailHistory([]);localStorage.removeItem("emailHistory");setShowEmailHistory(false)}}
+style={{background:"transparent",border:"1px solid #ff444433",borderRadius:3,color:"#ff4444",fontSize:10,padding:"2px 8px",cursor:"pointer",fontFamily:"monospace"}}>
+CLEAR
+</button>
+</div>
+{showEmailHistory&&<div style={{border:"1px solid #00ff9f22",borderTop:"none",borderRadius:"0 0 8px 8px",background:"rgba(0,0,0,0.6)",maxHeight:280,overflowY:"auto"}}>
+{emailHistory.map(h=>(
+<div key={h.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:"1px solid #00ff9f0a"}}>
+<div style={{width:8,height:8,borderRadius:"50%",flexShrink:0,background:h.dangerous>0?"#ff4444":h.suspicious>0?"#ffcc00":"#00ff9f"}}/>
+<div style={{flex:1,minWidth:0}}>
+<div style={{fontSize:11,color:"rgba(0,255,159,0.85)",fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.summary}</div>
+<div style={{fontSize:9,color:"rgba(0,255,159,0.3)",marginTop:2,letterSpacing:1}}>{h.timestamp}</div>
+</div>
+<div style={{display:"flex",gap:6,flexShrink:0}}>
+{h.dangerous>0&&<span style={{fontSize:10,color:"#ff4444",fontFamily:"monospace",border:"1px solid #ff444433",padding:"1px 6px",borderRadius:10}}>{h.dangerous} 🚫</span>}
+{h.suspicious>0&&<span style={{fontSize:10,color:"#ffcc00",fontFamily:"monospace",border:"1px solid #ffcc0033",padding:"1px 6px",borderRadius:10}}>{h.suspicious} ⚠</span>}
+<span style={{fontSize:10,color:"rgba(0,255,159,0.5)",fontFamily:"monospace",border:"1px solid #00ff9f22",padding:"1px 6px",borderRadius:10}}>{h.totalUrls} URLs</span>
+</div>
+</div>
+))}
+</div>}
 </div>}
 </div>
 )}
@@ -523,6 +559,7 @@ const[error,setError]=useState("")
 const[logsComplete,setLogsComplete]=useState(false)
 const[history,setHistory]=useState(()=>{try{return JSON.parse(localStorage.getItem("scanHistory"))||[]}catch{return[]}})
 const[showHistory,setShowHistory]=useState(false)
+const[emailHistory,setEmailHistory]=useState(()=>{try{return JSON.parse(localStorage.getItem("emailHistory"))||[]}catch{return[]}})
 const pendingResult=useRef(null)
 const terminalDone=useRef(false)
 const backendDone=useRef(false)
@@ -534,7 +571,7 @@ return unsub
 
 const handleLogout=async()=>{
 await signOut(auth)
-setResult(null);setUrl("");setHistory([])
+setResult(null);setUrl("");setHistory([]);setEmailHistory([])
 }
 
 const showResult=useCallback((res,hist)=>{
@@ -735,7 +772,7 @@ style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBott
 {result&&!scanning&&<ScanResults result={result}/>}
 </>}
 
-{tab==="email"&&<EmailChecker/>}
+{tab==="email"&&<EmailChecker emailHistory={emailHistory} setEmailHistory={setEmailHistory}/>}
 
 </div>
 </div>
