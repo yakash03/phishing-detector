@@ -204,6 +204,39 @@ const regex=/https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}
 return[...new Set(text.match(regex)||[])]
 }
 
+const EmailHistoryItem=({h})=>{
+const[expanded,setExpanded]=useState(false)
+const hColor=h.dangerous>0?"#ff4444":h.suspicious>0?"#ffcc00":"#00ff9f"
+return(
+<div style={{borderBottom:"1px solid #00ff9f0a"}}>
+<div onClick={()=>setExpanded(s=>!s)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",cursor:"pointer"}}>
+<div style={{width:8,height:8,borderRadius:"50%",flexShrink:0,background:hColor}}/>
+<div style={{flex:1,minWidth:0}}>
+<div style={{fontSize:11,color:"rgba(0,255,159,0.85)",fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.summary}</div>
+<div style={{fontSize:9,color:"rgba(0,255,159,0.3)",marginTop:2,letterSpacing:1}}>{h.timestamp}</div>
+</div>
+<div style={{display:"flex",gap:6,flexShrink:0,alignItems:"center"}}>
+{h.dangerous>0&&<span style={{fontSize:10,color:"#ff4444",fontFamily:"monospace",border:"1px solid #ff444433",padding:"1px 6px",borderRadius:10}}>{h.dangerous} 🚫</span>}
+{h.suspicious>0&&<span style={{fontSize:10,color:"#ffcc00",fontFamily:"monospace",border:"1px solid #ffcc0033",padding:"1px 6px",borderRadius:10}}>{h.suspicious} ⚠</span>}
+<span style={{fontSize:10,color:"rgba(0,255,159,0.5)",fontFamily:"monospace",border:"1px solid #00ff9f22",padding:"1px 6px",borderRadius:10}}>{h.totalUrls} URLs</span>
+<span style={{fontSize:10,color:"rgba(0,255,159,0.4)"}}>{expanded?"▲":"▼"}</span>
+</div>
+</div>
+{expanded&&h.urls&&<div style={{padding:"0 14px 10px 14px",display:"flex",flexDirection:"column",gap:6}}>
+{h.urls.map((u,i)=>{
+const vc=u.verdict==="Dangerous"?"#ff4444":u.verdict==="Suspicious"||u.verdict==="Low Risk"?"#ffcc00":"#00ff9f"
+return(
+<div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:`${vc}08`,borderLeft:`2px solid ${vc}`,borderRadius:4}}>
+<span style={{fontSize:12}}>{u.verdict==="Dangerous"?"🚫":u.verdict==="Suspicious"||u.verdict==="Low Risk"?"⚠️":"🛡️"}</span>
+<div style={{flex:1,minWidth:0,fontSize:10,color:"rgba(0,255,159,0.7)",fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.url}</div>
+<span style={{fontSize:10,fontWeight:700,color:vc,fontFamily:"monospace",flexShrink:0}}>{u.score}/100</span>
+</div>
+)
+})}
+</div>}
+</div>
+)}
+
 const EmailChecker=({emailHistory,setEmailHistory})=>{
 const[emailText,setEmailText]=useState("")
 const[scanning,setScanning]=useState(false)
@@ -313,39 +346,12 @@ style={{background:"transparent",border:"1px solid #ff444433",borderRadius:3,col
 CLEAR
 </button>
 </div>
-{showEmailHistory&&<div style={{border:"1px solid #00ff9f22",borderTop:"none",borderRadius:"0 0 8px 8px",background:"rgba(0,0,0,0.6)",maxHeight:280,overflowY:"auto"}}>
-{emailHistory.map(h=>{
-const[expanded,setExpanded]=useState(false)
-const hColor=h.dangerous>0?"#ff4444":h.suspicious>0?"#ffcc00":"#00ff9f"
-return(
-<div key={h.id} style={{borderBottom:"1px solid #00ff9f0a"}}>
-<div onClick={()=>setExpanded(s=>!s)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",cursor:"pointer"}}>
-<div style={{width:8,height:8,borderRadius:"50%",flexShrink:0,background:hColor}}/>
-<div style={{flex:1,minWidth:0}}>
-<div style={{fontSize:11,color:"rgba(0,255,159,0.85)",fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.summary}</div>
-<div style={{fontSize:9,color:"rgba(0,255,159,0.3)",marginTop:2,letterSpacing:1}}>{h.timestamp}</div>
-</div>
-<div style={{display:"flex",gap:6,flexShrink:0,alignItems:"center"}}>
-{h.dangerous>0&&<span style={{fontSize:10,color:"#ff4444",fontFamily:"monospace",border:"1px solid #ff444433",padding:"1px 6px",borderRadius:10}}>{h.dangerous} 🚫</span>}
-{h.suspicious>0&&<span style={{fontSize:10,color:"#ffcc00",fontFamily:"monospace",border:"1px solid #ffcc0033",padding:"1px 6px",borderRadius:10}}>{h.suspicious} ⚠</span>}
-<span style={{fontSize:10,color:"rgba(0,255,159,0.5)",fontFamily:"monospace",border:"1px solid #00ff9f22",padding:"1px 6px",borderRadius:10}}>{h.totalUrls} URLs</span>
-<span style={{fontSize:10,color:"rgba(0,255,159,0.4)"}}>{expanded?"▲":"▼"}</span>
-</div>
-</div>
-{expanded&&h.urls&&<div style={{padding:"0 14px 10px 14px",display:"flex",flexDirection:"column",gap:6}}>
-{h.urls.map((u,i)=>{
-const vc=u.verdict==="Dangerous"?"#ff4444":u.verdict==="Suspicious"||u.verdict==="Low Risk"?"#ffcc00":"#00ff9f"
-return(
-<div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:`${vc}08`,borderLeft:`2px solid ${vc}`,borderRadius:4}}>
-<span style={{fontSize:12}}>{u.verdict==="Dangerous"?"🚫":u.verdict==="Suspicious"||u.verdict==="Low Risk"?"⚠️":"🛡️"}</span>
-<div style={{flex:1,minWidth:0,fontSize:10,color:"rgba(0,255,159,0.7)",fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.url}</div>
-<span style={{fontSize:10,fontWeight:700,color:vc,fontFamily:"monospace",flexShrink:0}}>{u.score}/100</span>
-</div>
-)
-})}
+{showEmailHistory&&<div style={{border:"1px solid #00ff9f22",borderTop:"none",borderRadius:"0 0 8px 8px",background:"rgba(0,0,0,0.6)",maxHeight:400,overflowY:"auto"}}>
+{emailHistory.map(h=><EmailHistoryItem key={h.id} h={h}/>)}
+</div>}
 </div>}
 </div>
-)})}
+)}
 
 const QRScanner=({onURLFound})=>{
 const[dragging,setDragging]=useState(false)
@@ -426,6 +432,9 @@ style={{border:`2px dashed ${dragging?"#00ff9f":"#1a3a2a"}`,borderRadius:8,paddi
 {qrSuccess}
 <div style={{marginTop:4,fontSize:10,color:"rgba(0,255,159,0.5)"}}>↑ URL filled in input above — click Scan Now!</div>
 </div>}
+{qrError&&<div style={{marginTop:8,border:"1px solid #ff444433",borderLeft:"3px solid #ff4444",borderRadius:4,padding:"8px 12px",fontSize:11,color:"#ff4444",fontFamily:"monospace"}}>{qrError}</div>}
+</div>
+)}
 
 const AuthScreen=({onLogin})=>{
 const[mode,setMode]=useState("login")
@@ -695,7 +704,6 @@ input:focus,textarea:focus{outline:none;border-color:#00ff9f!important;box-shado
 <div style={{position:"relative",minHeight:"100vh",overflow:"hidden",background:"#0a0a0a"}}>
 <MatrixRain/>
 <div className="scanline" style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:1}}/>
-
 <div style={{position:"fixed",top:16,right:20,zIndex:20,display:"flex",alignItems:"center",gap:10,padding:"6px 14px",background:"rgba(0,0,0,0.6)",border:"1px solid #1a3a2a",borderRadius:20,backdropFilter:"blur(8px)"}}>
 {user.photoURL&&<img src={user.photoURL} style={{width:22,height:22,borderRadius:"50%",border:"1px solid #00ff9f44"}} alt="avatar"/>}
 <span style={{fontSize:11,color:"rgba(0,255,159,0.7)",fontFamily:"monospace",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
@@ -703,13 +711,11 @@ input:focus,textarea:focus{outline:none;border-color:#00ff9f!important;box-shado
 </span>
 <button onClick={handleLogout} style={{background:"transparent",border:"1px solid #ff444433",borderRadius:4,color:"#ff4444",fontSize:10,padding:"2px 8px",cursor:"pointer",fontFamily:"monospace",letterSpacing:1}}>LOGOUT</button>
 </div>
-
 <div style={{position:"relative",zIndex:10,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"48px 24px",gap:32}}>
 <div className="mobile-hacker" style={{width:"100%",maxWidth:320}}><HackerScene/></div>
 <div style={{display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:64,width:"100%",maxWidth:1200}}>
 <div style={{flex:1,maxWidth:560,width:"100%"}}>
 <div style={{display:"flex",flexDirection:"column",gap:24}}>
-
 <div style={{animation:"slideIn .6s ease"}}>
 <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
 <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
@@ -723,7 +729,6 @@ AI Phishing Detector
 <p style={{color:"rgba(0,255,159,.4)",fontSize:14,marginLeft:44}}>Analyze URLs and emails for threats in real-time</p>
 <NotificationButton/>
 </div>
-
 <div style={{display:"flex",borderBottom:"1px solid #00ff9f22",gap:0}}>
 {[["url","🔗 URL Scanner"],["email","📧 Email Checker"]].map(([key,label])=>(
 <button key={key} onClick={()=>setTab(key)}
@@ -732,7 +737,6 @@ style={{padding:"10px 20px",background:"transparent",border:"none",borderBottom:
 </button>
 ))}
 </div>
-
 {tab==="url"&&<>
 <div style={{animation:"slideIn .5s ease .2s both"}}>
 <div style={{position:"relative",marginBottom:12}}>
@@ -749,9 +753,7 @@ style={{width:"100%",padding:16,borderRadius:8,border:"none",fontFamily:"monospa
 {scanning?"⟳  Scanning...":"⚡  Scan Now"}
 </button>
 </div>
-
 <QRScanner onURLFound={u=>{setUrl(u);setResult(null);setError("")}}/>
-
 {history.length>0&&<div style={{animation:"slideIn .3s ease"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:"rgba(0,255,159,0.04)",border:"1px solid #00ff9f33",borderRadius:showHistory?"8px 8px 0 0":"8px",cursor:"pointer"}} onClick={()=>setShowHistory(s=>!s)}>
 <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -780,14 +782,11 @@ style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBott
 ))}
 </div>}
 </div>}
-
 {scanning&&<TerminalLogs onComplete={handleLogsComplete}/>}
 {error&&<div style={{border:"1px solid #ff444433",borderLeft:"3px solid #ff4444",borderRadius:4,padding:"12px 16px",fontSize:12,color:"#ff4444",fontFamily:"monospace",letterSpacing:1}}>{error}</div>}
 {result&&!scanning&&<ScanResults result={result}/>}
 </>}
-
 {tab==="email"&&<EmailChecker emailHistory={emailHistory} setEmailHistory={setEmailHistory}/>}
-
 </div>
 </div>
 <div className="desktop-hacker" style={{flex:1,maxWidth:480,display:"flex",alignItems:"center",justifyContent:"center"}}><HackerScene/></div>
