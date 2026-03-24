@@ -199,7 +199,103 @@ style={{marginLeft:44,marginTop:6,padding:"4px 12px",background:"transparent",bo
 </button>
 )}
 
-// ─── QR SCANNER ─────────────────────────────────────────────────────────────
+function extractUrls(text){
+const regex=/https?:\/\/(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)/gi
+return[...new Set(text.match(regex)||[])]
+}
+
+const EmailChecker=()=>{
+const[emailText,setEmailText]=useState("")
+const[scanning,setScanning]=useState(false)
+const[results,setResults]=useState([])
+const[error,setError]=useState("")
+const[progress,setProgress]=useState(0)
+const[summary,setSummary]=useState("")
+
+const scanEmail=async()=>{
+const urls=extractUrls(emailText)
+if(urls.length===0){setError("No URLs found in the email text.");return}
+setScanning(true);setResults([]);setError("");setSummary("");setProgress(0)
+const scanned=[]
+for(let i=0;i<urls.length;i++){
+const url=urls[i]
+setProgress(Math.round(((i+1)/urls.length)*100))
+try{
+const res=await axios.post("https://phishing-predictor.up.railway.app/analyze",{url},{timeout:30000})
+scanned.push({url,score:res.data.score,verdict:res.data.verdict,flags:res.data.flags||[],ai:res.data.ai_analysis})
+}catch{scanned.push({url,score:0,verdict:"Error",flags:[],ai:null})}
+setResults([...scanned])
+}
+setScanning(false)
+const dangerous=scanned.filter(r=>r.verdict==="Dangerous").length
+const suspicious=scanned.filter(r=>r.verdict==="Suspicious"||r.verdict==="Low Risk").length
+const total=scanned.length
+if(dangerous>0)setSummary(`⚠ HIGH RISK — ${dangerous}/${total} URLs are DANGEROUS. Do NOT click any links!`)
+else if(suspicious>0)setSummary(`⚡ SUSPICIOUS — ${suspicious}/${total} URLs look suspicious. Verify the sender.`)
+else setSummary(`✓ SAFE — All ${total} URLs scanned clean. No phishing detected.`)
+}
+
+const urls=extractUrls(emailText)
+const dangerCount=results.filter(r=>r.verdict==="Dangerous").length
+const overallColor=dangerCount>0?"#ff4444":results.some(r=>r.verdict==="Suspicious"||r.verdict==="Low Risk")?"#ffcc00":"#00ff9f"
+
+return(
+<div style={{display:"flex",flexDirection:"column",gap:16}}>
+<div style={{background:"rgba(0,255,159,0.03)",border:"1px solid #00ff9f22",borderRadius:8,padding:16}}>
+<div style={{fontSize:10,color:"rgba(0,255,159,0.5)",letterSpacing:3,marginBottom:10,fontFamily:"monospace"}}>[ PASTE EMAIL CONTENT BELOW ]</div>
+<textarea value={emailText} onChange={e=>setEmailText(e.target.value)}
+placeholder="Paste the full email text here including all links..."
+style={{width:"100%",minHeight:160,padding:"12px",background:"#121212",border:"1px solid #1a3a2a",borderRadius:6,fontFamily:"monospace",fontSize:12,color:"#00ff9f",resize:"vertical",outline:"none",lineHeight:1.6}}/>
+{emailText&&<div style={{marginTop:8,fontSize:11,color:"rgba(0,255,159,0.5)",fontFamily:"monospace"}}>
+{urls.length>0?`${urls.length} URL${urls.length>1?"s":""} detected`:"No URLs detected yet"}
+</div>}
+</div>
+<button onClick={scanEmail} disabled={scanning||!emailText.trim()||urls.length===0}
+style={{width:"100%",padding:14,borderRadius:8,border:"none",fontFamily:"monospace",fontWeight:700,fontSize:14,letterSpacing:"0.2em",cursor:scanning||!emailText.trim()||urls.length===0?"not-allowed":"pointer",transition:"all .3s",background:scanning||!emailText.trim()||urls.length===0?"#1a1a1a":"#00ff9f",color:scanning||!emailText.trim()||urls.length===0?"rgba(0,255,159,.3)":"#0a0a0a",animation:scanning||!emailText.trim()||urls.length===0?"none":"pulseNeon 2s ease-in-out infinite"}}>
+{scanning?`⟳ Scanning... ${progress}%`:`⚡ Scan Email (${urls.length} URL${urls.length!==1?"s":""})`}
+</button>
+{scanning&&<div style={{background:"rgba(0,0,0,0.4)",border:"1px solid #00ff9f22",borderRadius:8,padding:14}}>
+<div style={{display:"flex",justifyContent:"space-between",marginBottom:8,fontSize:11,color:"rgba(0,255,159,0.6)",fontFamily:"monospace"}}>
+<span>SCANNING URLS...</span><span>{progress}%</span>
+</div>
+<div style={{background:"#1a1a1a",borderRadius:999,height:6,overflow:"hidden"}}>
+<div style={{width:`${progress}%`,height:"100%",background:"#00ff9f",borderRadius:999,transition:"width .3s ease"}}/>
+</div>
+</div>}
+{error&&<div style={{border:"1px solid #ff444433",borderLeft:"3px solid #ff4444",borderRadius:4,padding:"11px 14px",fontSize:12,color:"#ff4444",fontFamily:"monospace"}}>{error}</div>}
+{summary&&<div style={{border:`1px solid ${overallColor}44`,borderRadius:8,padding:"14px 16px",background:`${overallColor}0a`,fontSize:13,color:overallColor,fontFamily:"monospace",fontWeight:700,letterSpacing:1,textAlign:"center",boxShadow:`0 0 20px ${overallColor}22`}}>{summary}</div>}
+{results.length>0&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
+<div style={{fontSize:10,color:"rgba(0,255,159,0.4)",letterSpacing:3,fontFamily:"monospace"}}>URL RESULTS — {results.length} SCANNED</div>
+{results.map((r,i)=>{
+const vk=r.verdict==="Dangerous"?"dangerous":r.verdict==="Suspicious"||r.verdict==="Low Risk"?"suspicious":"safe"
+const v=verdictConfig[vk]||verdictConfig.safe
+return(
+<div key={i} style={{border:`1px solid ${v.color}22`,borderLeft:`3px solid ${v.color}`,borderRadius:8,padding:"12px 14px",background:`${v.color}08`}}>
+<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,flexWrap:"wrap"}}>
+<span style={{fontSize:16}}>{v.icon}</span>
+<div style={{flex:1,minWidth:0}}>
+<div style={{fontSize:11,color:"rgba(0,255,159,0.7)",fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.url}</div>
+</div>
+<div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+<span style={{fontSize:13,fontWeight:700,color:v.color,fontFamily:"monospace"}}>{r.score}/100</span>
+<span style={{fontSize:11,color:v.color,border:`1px solid ${v.color}44`,padding:"1px 8px",borderRadius:20,fontFamily:"monospace"}}>{r.verdict.toUpperCase()}</span>
+</div>
+</div>
+<div style={{background:"#1a1a1a",borderRadius:999,height:5,overflow:"hidden",marginBottom:8}}>
+<div style={{width:`${r.score}%`,height:"100%",background:v.color,borderRadius:999,transition:"width 1s ease"}}/>
+</div>
+{r.ai&&<div style={{fontSize:12,color:"rgba(0,255,159,0.6)",lineHeight:1.6,padding:"8px 10px",background:"rgba(0,0,0,0.3)",borderRadius:4,borderLeft:"2px solid #00ff9f22"}}>
+<span style={{color:"#00ff9f",fontWeight:700}}>AI: </span>{r.ai.explanation}
+</div>}
+{r.flags.length>0&&<div style={{marginTop:8,display:"flex",flexWrap:"wrap",gap:5}}>
+{r.flags.slice(0,3).map((f,j)=><span key={j} style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:f.risk==="high"?"rgba(255,68,68,0.15)":"rgba(255,204,0,0.1)",color:f.risk==="high"?"#ff4444":"#ffcc00",fontFamily:"monospace"}}>{f.check}</span>)}
+{r.flags.length>3&&<span style={{fontSize:10,color:"rgba(0,255,159,0.4)",padding:"2px 8px"}}>+{r.flags.length-3} more</span>}
+</div>}
+</div>
+)})}
+</div>}
+</div>
+)}
 
 const QRScanner=({onURLFound})=>{
 const[dragging,setDragging]=useState(false)
@@ -210,15 +306,12 @@ const fileRef=useRef(null)
 
 const scanQR=async(file)=>{
 if(!file)return
-setQrLoading(true)
-setQrError("")
-setQrSuccess("")
+setQrLoading(true);setQrError("");setQrSuccess("")
 const img=new Image()
 const objectUrl=URL.createObjectURL(file)
 img.onload=async()=>{
 const canvas=document.createElement("canvas")
-canvas.width=img.width
-canvas.height=img.height
+canvas.width=img.width;canvas.height=img.height
 const ctx=canvas.getContext("2d")
 ctx.drawImage(img,0,0)
 const imageData=ctx.getImageData(0,0,canvas.width,canvas.height)
@@ -228,25 +321,19 @@ const code=jsQR(imageData.data,imageData.width,imageData.height)
 if(code&&code.data){
 setQrSuccess("✅ QR decoded: "+code.data.slice(0,40)+(code.data.length>40?"...":""))
 onURLFound(code.data)
-}else{
-setQrError("⚠ No QR code detected. Try a clearer or higher-res image.")
-}
-}catch(e){
-setQrError("⚠ QR scan failed. Make sure jsqr is installed.")
-}
-setQrLoading(false)
-URL.revokeObjectURL(objectUrl)
+}else{setQrError("⚠ No QR code detected. Try a clearer image.")}
+}catch(e){setQrError("⚠ QR scan failed.")}
+setQrLoading(false);URL.revokeObjectURL(objectUrl)
 }
 img.onerror=()=>{setQrError("⚠ Could not read image file.");setQrLoading(false)}
 img.src=objectUrl
 }
 
 const handleDrop=e=>{
-e.preventDefault()
-setDragging(false)
+e.preventDefault();setDragging(false)
 const file=e.dataTransfer.files[0]
 if(file&&file.type.startsWith("image/"))scanQR(file)
-else setQrError("⚠ Please drop an image file (PNG, JPG, WEBP).")
+else setQrError("⚠ Please drop an image file.")
 }
 
 const handleFile=e=>{
@@ -258,12 +345,8 @@ e.target.value=""
 return(
 <div style={{animation:"slideIn .4s ease"}}>
 <p style={{fontSize:11,color:"rgba(0,255,159,0.4)",fontFamily:"monospace",letterSpacing:2,marginBottom:8}}>▣ OR SCAN A QR CODE</p>
-<div
-onDragOver={e=>{e.preventDefault();setDragging(true)}}
-onDragLeave={()=>setDragging(false)}
-onDrop={handleDrop}
-onClick={()=>fileRef.current.click()}
-style={{border:`2px dashed ${dragging?"#00ff9f":"#1a3a2a"}`,borderRadius:8,padding:"20px 16px",textAlign:"center",cursor:"pointer",background:dragging?"rgba(0,255,159,0.07)":"rgba(0,0,0,0.2)",transition:"all .3s",position:"relative"}}>
+<div onDragOver={e=>{e.preventDefault();setDragging(true)}} onDragLeave={()=>setDragging(false)} onDrop={handleDrop} onClick={()=>fileRef.current.click()}
+style={{border:`2px dashed ${dragging?"#00ff9f":"#1a3a2a"}`,borderRadius:8,padding:"20px 16px",textAlign:"center",cursor:"pointer",background:dragging?"rgba(0,255,159,0.07)":"rgba(0,0,0,0.2)",transition:"all .3s"}}>
 <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleFile}/>
 {qrLoading?(
 <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
@@ -289,20 +372,10 @@ style={{border:`2px dashed ${dragging?"#00ff9f":"#1a3a2a"}`,borderRadius:8,paddi
 </div>
 )}
 </div>
-{qrSuccess&&(
-<div style={{marginTop:8,border:"1px solid #00ff9f33",borderLeft:"3px solid #00ff9f",borderRadius:4,padding:"8px 12px",fontSize:11,color:"#00ff9f",fontFamily:"monospace",animation:"slideIn .3s ease"}}>
-{qrSuccess}
+{qrSuccess&&<div style={{marginTop:8,border:"1px solid #00ff9f33",borderLeft:"3px solid #00ff9f",borderRadius:4,padding:"8px 12px",fontSize:11,color:"#00ff9f",fontFamily:"monospace"}}>{qrSuccess}</div>}
+{qrError&&<div style={{marginTop:8,border:"1px solid #ff444433",borderLeft:"3px solid #ff4444",borderRadius:4,padding:"8px 12px",fontSize:11,color:"#ff4444",fontFamily:"monospace"}}>{qrError}</div>}
 </div>
 )}
-{qrError&&(
-<div style={{marginTop:8,border:"1px solid #ff444433",borderLeft:"3px solid #ff4444",borderRadius:4,padding:"8px 12px",fontSize:11,color:"#ff4444",fontFamily:"monospace",animation:"slideIn .3s ease"}}>
-{qrError}
-</div>
-)}
-</div>
-)}
-
-// ─── AUTH SCREEN ────────────────────────────────────────────────────────────
 
 const AuthScreen=({onLogin})=>{
 const[mode,setMode]=useState("login")
@@ -440,10 +513,9 @@ style={{flex:1,padding:"10px 0",background:mode===m?"rgba(0,255,159,0.1)":"trans
 </div>
 )}
 
-// ─── MAIN APP ────────────────────────────────────────────────────────────────
-
 export default function App(){
 const[user,setUser]=useState(undefined)
+const[tab,setTab]=useState("url")
 const[url,setUrl]=useState("")
 const[scanning,setScanning]=useState(false)
 const[result,setResult]=useState(null)
@@ -562,8 +634,8 @@ body{background:#0a0a0a;color:#00ff9f;font-family:monospace}
 @keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulseNeon{0%,100%{box-shadow:0 0 10px rgba(0,255,159,.5),0 0 40px rgba(0,255,159,.2)}50%{box-shadow:0 0 20px rgba(0,255,159,.8),0 0 60px rgba(0,255,159,.4)}}
 .scanline{background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,159,.03) 2px,rgba(0,255,159,.03) 4px)}
-input::placeholder{color:rgba(0,255,159,.3)}
-input:focus{outline:none;border-color:#00ff9f!important;box-shadow:0 0 10px rgba(0,255,159,.5),0 0 40px rgba(0,255,159,.2),inset 0 0 20px rgba(0,255,159,.05)!important}
+input::placeholder,textarea::placeholder{color:rgba(0,255,159,.3)}
+input:focus,textarea:focus{outline:none;border-color:#00ff9f!important;box-shadow:0 0 10px rgba(0,255,159,.5),0 0 40px rgba(0,255,159,.2),inset 0 0 20px rgba(0,255,159,.05)!important}
 .scanbtn:hover{background:#00ff9f!important;color:#0a0a0a!important}
 .histrow:hover{background:rgba(0,255,159,0.06)!important}
 @media(max-width:1023px){.desktop-hacker{display:none!important}}
@@ -597,10 +669,20 @@ input:focus{outline:none;border-color:#00ff9f!important;box-shadow:0 0 10px rgba
 AI Phishing Detector
 </h1>
 </div>
-<p style={{color:"rgba(0,255,159,.4)",fontSize:14,marginLeft:44}}>Analyze URLs for threats in real-time</p>
+<p style={{color:"rgba(0,255,159,.4)",fontSize:14,marginLeft:44}}>Analyze URLs and emails for threats in real-time</p>
 <NotificationButton/>
 </div>
 
+<div style={{display:"flex",borderBottom:"1px solid #00ff9f22",gap:0}}>
+{[["url","🔗 URL Scanner"],["email","📧 Email Checker"]].map(([key,label])=>(
+<button key={key} onClick={()=>setTab(key)}
+style={{padding:"10px 20px",background:"transparent",border:"none",borderBottom:`2px solid ${tab===key?"#00ff9f":"transparent"}`,color:tab===key?"#00ff9f":"rgba(0,255,159,0.4)",fontFamily:"monospace",fontSize:11,letterSpacing:2,cursor:"pointer",transition:"all .2s"}}>
+{label}
+</button>
+))}
+</div>
+
+{tab==="url"&&<>
 <div style={{animation:"slideIn .5s ease .2s both"}}>
 <div style={{position:"relative",marginBottom:12}}>
 <input type="text" value={url} onChange={e=>setUrl(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleScan()}
@@ -651,6 +733,9 @@ style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBott
 {scanning&&<TerminalLogs onComplete={handleLogsComplete}/>}
 {error&&<div style={{border:"1px solid #ff444433",borderLeft:"3px solid #ff4444",borderRadius:4,padding:"12px 16px",fontSize:12,color:"#ff4444",fontFamily:"monospace",letterSpacing:1}}>{error}</div>}
 {result&&!scanning&&<ScanResults result={result}/>}
+</>}
+
+{tab==="email"&&<EmailChecker/>}
 
 </div>
 </div>
