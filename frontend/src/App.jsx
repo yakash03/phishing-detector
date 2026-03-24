@@ -236,7 +236,7 @@ if(dangerous>0)summaryText=`⚠ HIGH RISK — ${dangerous}/${total} URLs are DAN
 else if(suspicious>0)summaryText=`⚡ SUSPICIOUS — ${suspicious}/${total} URLs look suspicious. Verify the sender.`
 else summaryText=`✓ SAFE — All ${total} URLs scanned clean. No phishing detected.`
 setSummary(summaryText)
-const newEntry={id:Date.now(),timestamp:new Date().toLocaleString(),totalUrls:total,dangerous,suspicious,safe:total-dangerous-suspicious,summary:summaryText}
+const newEntry={id:Date.now(),timestamp:new Date().toLocaleString(),totalUrls:total,dangerous,suspicious,safe:total-dangerous-suspicious,summary:summaryText,urls:scanned.map(r=>({url:r.url,verdict:r.verdict,score:r.score}))}
 const updated=[newEntry,...emailHistory].slice(0,15)
 setEmailHistory(updated)
 try{localStorage.setItem("emailHistory",JSON.stringify(updated))}catch(e){}
@@ -314,24 +314,38 @@ CLEAR
 </button>
 </div>
 {showEmailHistory&&<div style={{border:"1px solid #00ff9f22",borderTop:"none",borderRadius:"0 0 8px 8px",background:"rgba(0,0,0,0.6)",maxHeight:280,overflowY:"auto"}}>
-{emailHistory.map(h=>(
-<div key={h.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:"1px solid #00ff9f0a"}}>
-<div style={{width:8,height:8,borderRadius:"50%",flexShrink:0,background:h.dangerous>0?"#ff4444":h.suspicious>0?"#ffcc00":"#00ff9f"}}/>
+{emailHistory.map(h=>{
+const[expanded,setExpanded]=useState(false)
+const hColor=h.dangerous>0?"#ff4444":h.suspicious>0?"#ffcc00":"#00ff9f"
+return(
+<div key={h.id} style={{borderBottom:"1px solid #00ff9f0a"}}>
+<div onClick={()=>setExpanded(s=>!s)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",cursor:"pointer"}}>
+<div style={{width:8,height:8,borderRadius:"50%",flexShrink:0,background:hColor}}/>
 <div style={{flex:1,minWidth:0}}>
 <div style={{fontSize:11,color:"rgba(0,255,159,0.85)",fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.summary}</div>
 <div style={{fontSize:9,color:"rgba(0,255,159,0.3)",marginTop:2,letterSpacing:1}}>{h.timestamp}</div>
 </div>
-<div style={{display:"flex",gap:6,flexShrink:0}}>
+<div style={{display:"flex",gap:6,flexShrink:0,alignItems:"center"}}>
 {h.dangerous>0&&<span style={{fontSize:10,color:"#ff4444",fontFamily:"monospace",border:"1px solid #ff444433",padding:"1px 6px",borderRadius:10}}>{h.dangerous} 🚫</span>}
 {h.suspicious>0&&<span style={{fontSize:10,color:"#ffcc00",fontFamily:"monospace",border:"1px solid #ffcc0033",padding:"1px 6px",borderRadius:10}}>{h.suspicious} ⚠</span>}
 <span style={{fontSize:10,color:"rgba(0,255,159,0.5)",fontFamily:"monospace",border:"1px solid #00ff9f22",padding:"1px 6px",borderRadius:10}}>{h.totalUrls} URLs</span>
+<span style={{fontSize:10,color:"rgba(0,255,159,0.4)"}}>{expanded?"▲":"▼"}</span>
 </div>
 </div>
-))}
+{expanded&&h.urls&&<div style={{padding:"0 14px 10px 14px",display:"flex",flexDirection:"column",gap:6}}>
+{h.urls.map((u,i)=>{
+const vc=u.verdict==="Dangerous"?"#ff4444":u.verdict==="Suspicious"||u.verdict==="Low Risk"?"#ffcc00":"#00ff9f"
+return(
+<div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:`${vc}08`,borderLeft:`2px solid ${vc}`,borderRadius:4}}>
+<span style={{fontSize:12}}>{u.verdict==="Dangerous"?"🚫":u.verdict==="Suspicious"||u.verdict==="Low Risk"?"⚠️":"🛡️"}</span>
+<div style={{flex:1,minWidth:0,fontSize:10,color:"rgba(0,255,159,0.7)",fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.url}</div>
+<span style={{fontSize:10,fontWeight:700,color:vc,fontFamily:"monospace",flexShrink:0}}>{u.score}/100</span>
+</div>
+)
+})}
 </div>}
-</div>}
 </div>
-)}
+)})}
 
 const QRScanner=({onURLFound})=>{
 const[dragging,setDragging]=useState(false)
@@ -408,10 +422,10 @@ style={{border:`2px dashed ${dragging?"#00ff9f":"#1a3a2a"}`,borderRadius:8,paddi
 </div>
 )}
 </div>
-{qrSuccess&&<div style={{marginTop:8,border:"1px solid #00ff9f33",borderLeft:"3px solid #00ff9f",borderRadius:4,padding:"8px 12px",fontSize:11,color:"#00ff9f",fontFamily:"monospace"}}>{qrSuccess}</div>}
-{qrError&&<div style={{marginTop:8,border:"1px solid #ff444433",borderLeft:"3px solid #ff4444",borderRadius:4,padding:"8px 12px",fontSize:11,color:"#ff4444",fontFamily:"monospace"}}>{qrError}</div>}
-</div>
-)}
+{qrSuccess&&<div style={{marginTop:8,border:"1px solid #00ff9f33",borderLeft:"3px solid #00ff9f",borderRadius:4,padding:"8px 12px",fontSize:11,color:"#00ff9f",fontFamily:"monospace"}}>
+{qrSuccess}
+<div style={{marginTop:4,fontSize:10,color:"rgba(0,255,159,0.5)"}}>↑ URL filled in input above — click Scan Now!</div>
+</div>}
 
 const AuthScreen=({onLogin})=>{
 const[mode,setMode]=useState("login")
@@ -756,7 +770,7 @@ style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBott
 <div style={{width:8,height:8,borderRadius:"50%",flexShrink:0,background:h.verdict==="Dangerous"?"#ff4444":h.verdict==="Suspicious"||h.verdict==="Low Risk"?"#ffcc00":"#00ff9f"}}/>
 <div style={{flex:1,minWidth:0}}>
 <div style={{fontSize:11,color:"rgba(0,255,159,0.85)",fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.url}</div>
-<div style={{fontSize:9,color:"rgba(0,255,159,0.3)",marginTop:2,letterSpacing:1}}>{h.timestamp}</div>
+<div style={{fontSize:9,color:"rgba(0,255,159,0.3)",marginTop:2,letterSpacing:1}}>🕐 {h.timestamp} · click to re-scan</div>
 </div>
 <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",flexShrink:0,gap:1}}>
 <span style={{fontSize:11,fontWeight:700,color:h.verdict==="Dangerous"?"#ff4444":h.verdict==="Suspicious"||h.verdict==="Low Risk"?"#ffcc00":"#00ff9f",fontFamily:"monospace"}}>{h.score}/100</span>
