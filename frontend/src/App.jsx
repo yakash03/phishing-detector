@@ -126,9 +126,20 @@ const fetchDomainInfo=async()=>{
 try{
 const urlObj=new URL(result.url||"")
 const domain=urlObj.hostname.replace("www.","")
-const res=await fetch(`https://ipwhois.app/json/${domain}`)
+const res=await fetch(`https://ipwho.is/${domain}`)
 const data=await res.json()
-setDomainInfo(data)
+if(data.success){
+setDomainInfo({
+ip:data.ip,
+country:data.country,
+region:data.region,
+city:data.city,
+org:data.connection?.isp||data.connection?.org||"Unknown",
+timezone:data.timezone?.id,
+latitude:data.latitude,
+longitude:data.longitude
+})
+}
 }catch(e){}
 setLoadingInfo(false)
 }
