@@ -1,6 +1,6 @@
 import{useState,useCallback,useEffect,useRef}from"react"
 import axios from"axios"
-import{auth,googleProvider,signInWithPopup,signInWithPhoneNumber,createUserWithEmailAndPassword,signInWithEmailAndPassword,signOut,RecaptchaVerifier}from"./firebase"
+import{auth,googleProvider,signInWithPopup,signInWithPhoneNumber,createUserWithEmailAndPassword,signInWithEmailAndPassword,signOut,RecaptchaVerifier,signInAnonymously}from"./firebase"
 
 const MatrixRain=()=>{
 const canvasRef=useRef(null)
@@ -557,6 +557,13 @@ catch(e){setError("⚠ Google sign-in failed. "+e.message.replace("Firebase: ","
 setLoading(false)
 }
 
+const handleAnonymous=async()=>{
+setLoading(true);setError("")
+try{await signInAnonymously(auth);onLogin(auth.currentUser)}
+catch(e){setError("⚠ Guest login failed. "+e.message.replace("Firebase: ","").replace(/\(auth.*\)/,"").trim())}
+setLoading(false)
+}
+
 const setupRecaptcha=()=>{
 try{
 if(window.recaptchaVerifier){window.recaptchaVerifier.clear();window.recaptchaVerifier=null}
@@ -629,6 +636,7 @@ style={{flex:1,padding:"10px 0",background:mode===m?"rgba(0,255,159,0.1)":"trans
 <div style={{display:"flex",flexDirection:"column",gap:10}}>
 <button onClick={handleGoogle} disabled={loading} className="gbtn" style={ghostBtn}><span style={{marginRight:8}}>G</span> CONTINUE WITH GOOGLE</button>
 <button onClick={()=>{setMode("phone");setError("")}} style={ghostBtn}>📱 CONTINUE WITH PHONE</button>
+<button onClick={handleAnonymous} disabled={loading} className="gbtn" style={{...ghostBtn,color:"rgba(0,255,159,0.5)",borderColor:"#00ff9f22"}}>👤 CONTINUE AS GUEST</button>
 </div>
 </>
 )}
@@ -795,7 +803,7 @@ input:focus,textarea:focus{outline:none;border-color:#00ff9f!important;box-shado
 <div style={{position:"fixed",top:16,right:20,zIndex:20,display:"flex",alignItems:"center",gap:10,padding:"6px 14px",background:"rgba(0,0,0,0.6)",border:"1px solid #1a3a2a",borderRadius:20,backdropFilter:"blur(8px)"}}>
 {user.photoURL&&<img src={user.photoURL} style={{width:22,height:22,borderRadius:"50%",border:"1px solid #00ff9f44"}} alt="avatar"/>}
 <span style={{fontSize:11,color:"rgba(0,255,159,0.7)",fontFamily:"monospace",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-{user.displayName||user.email||user.phoneNumber||"USER"}
+{user.isAnonymous?"GUEST":user.displayName||user.email||user.phoneNumber||"USER"}
 </span>
 <button onClick={handleLogout} style={{background:"transparent",border:"1px solid #ff444433",borderRadius:4,color:"#ff4444",fontSize:10,padding:"2px 8px",cursor:"pointer",fontFamily:"monospace",letterSpacing:1}}>LOGOUT</button>
 </div>
