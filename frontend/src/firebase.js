@@ -13,4 +13,4 @@ const firebaseConfig={
 const app=initializeApp(firebaseConfig)
 export const auth=getAuth(app)
 export const googleProvider=new GoogleAuthProvider()
-eexport { auth, googleProvider, signInWithPopup, signInWithPhoneNumber, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, RecaptchaVerifier, signInAnonymously }
+export { auth, googleProvider, signInWithPopup, signInWithPhoneNumber, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, RecaptchaVerifier, signInAnonymously }
