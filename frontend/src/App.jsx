@@ -8,13 +8,23 @@ useEffect(()=>{
 const canvas=canvasRef.current
 if(!canvas)return
 const ctx=canvas.getContext("2d")
-const resize=()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight}
-resize()
-window.addEventListener("resize",resize)
 const chars="01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン"
 const fontSize=14
+let drops=[]
+
+const resize=()=>{
+canvas.width=window.innerWidth
+canvas.height=window.innerHeight
 const columns=Math.floor(canvas.width/fontSize)
-const drops=Array(columns).fill(1).map(()=>Math.random()*-100)
+const prev=drops.slice()
+drops=Array(columns).fill(null).map((_,i)=>
+prev[i]!==undefined?prev[i]:Math.random()*-100
+)
+}
+
+resize()
+window.addEventListener("resize",resize)
+
 const draw=()=>{
 ctx.fillStyle="rgba(10,10,10,0.05)"
 ctx.fillRect(0,0,canvas.width,canvas.height)
